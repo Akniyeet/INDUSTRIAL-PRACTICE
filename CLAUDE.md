@@ -150,14 +150,15 @@ These choices are final. Changing any of them requires an ADR approved before wo
 - **OpenSearch** for event catalog search and chat log search (not MVP)
 
 ### Frontend
-- **Framework**: Nuxt 4 + Vue 3 + TypeScript (strict mode)
+- **Framework**: Nuxt 3.21 with `future.compatibilityVersion: 4` (forward-compat mode; pure Nuxt 4 migration is a later phase)
+- **Language**: Vue 3 + TypeScript (strict mode)
 - **State**: Pinia
-- **Styling**: Tailwind CSS + CSS variables for theming
-- **UI library**: @nuxt/ui v4 (accessible, Tailwind-native)
+- **Styling**: Tailwind CSS + semantic token extensions (`brand.*`, `success.*`, `warning.*`, `danger.*`) in `tailwind.config.ts`
+- **UI kit**: **Hand-rolled** component library in `components/ui/*` (Button, Input, Textarea, Select, Card, Badge, Spinner, Skeleton, Modal, Empty, Countdown, Toast) built on **Headless UI** (accessibility primitives) + **lucide-vue-next** (icons). `@nuxt/ui` was evaluated and dropped — a hand-rolled kit gives us exact control over chrome, animation budgets, and Kazakh/Russian typography without fighting a third-party theme.
 - **Real-time client**: `centrifuge-js` (official Centrifugo client)
-- **HTTP client**: Native `$fetch` with a typed wrapper
-- **Forms**: vee-validate + zod for runtime validation
-- **i18n**: @nuxtjs/i18n (KZ, RU, EN from day one)
+- **HTTP client**: Custom **`ApiClient`** class in `shared/api/client.ts` that wraps `$fetch` with a narrow signature. Raw `$fetch` is NOT used directly — Nuxt's global `$fetch` is typed against Nitro's compile-time route map and trying to resolve backend paths through it collapses TS inference. The wrapper also normalises Spring `ProblemDetail` responses into a stable `ApiError` shape.
+- **Forms**: Hand-written reactive validation (MVP). `zod` and `vee-validate` are in the dependency list for later phases but not wired yet — current forms use inline `validate()` functions on top of `reactive()` state.
+- **i18n**: **Deferred**. All admin UI strings are currently inline Kazakh literals. `@nuxtjs/i18n` wiring will land when we need RU/EN parity (not MVP).
 - **Testing**: Vitest (unit) + Playwright (e2e)
 
 ### Billing / Payments
@@ -749,6 +750,91 @@ The first working milestone (**MVP**, defined in `docs/PLAN.md`) targets:
 - Deploy to staging environment
 
 Everything else is deferred until MVP is provably stable under load testing.
+
+---
+
+## 23. Frontend Implementation Conventions
+
+These are the concrete rules that crystallised during F1 (foundation) and F2 (admin events) and now apply to every subsequent frontend phase. If a new phase needs to violate one of them, write a note here first.
+
+### Directory layout
+```
+frontend/
+├── assets/css/main.css         ← Tailwind base + utility classes (input-base, field-label, card, ...)
+├── components/
+│   ├── ui/                     ← Reusable, brandless primitives (UiButton, UiCard, UiModal, ...)
+│   └── admin/                  ← Admin-chrome pieces (PageHeader, EventStatusBadge, EventForm, ...)
+├── composables/                ← useApi, useCentrifuge, ... (auto-imported)
+├── layouts/                    ← default.vue, admin.vue
+├── pages/                      ← file-based routing (see Route grouping below)
+├── plugins/                    ← auth.client.ts, ...
+├── shared/api/                 ← Typed API facade — framework-agnostic
+│   ├── client.ts               ← ApiClient class
+│   ├── types.ts                ← Hand-written TS mirrors of backend DTOs
+│   ├── endpoints/              ← One module per backend controller
+│   └── index.ts                ← createApi() factory
+└── stores/                     ← Pinia stores (auth, toast, ...)  auto-imported
+```
+
+### Component naming and auto-imports
+- `nuxt.config.ts` uses `components: [{ path: '~/components', pathPrefix: false }]`.
+- **`pathPrefix: false` drops the directory segment from the component name**. This is the key rule that every new component must respect:
+  - `components/ui/UiButton.vue` → `<UiButton>` ✅
+  - `components/admin/PageHeader.vue` → `<PageHeader>` (NOT `<AdminPageHeader>`) ✅
+  - `components/admin/EventStatusBadge.vue` → `<EventStatusBadge>` ✅
+- Because the directory segment is dropped, **file names must be globally unique**. Use a `Ui*` prefix for primitives and a domain-meaningful name for admin pieces (`EventForm`, `SessionTimeline`) so there are no collisions.
+
+### Shared API layer (`shared/api/`)
+- One `*Api` class per backend controller. Each class takes an `ApiClient` in its constructor and exposes typed methods.
+- `shared/api/types.ts` is **hand-written**, not codegen. It mirrors backend DTOs exactly (same field names, UPPER_SNAKE enum values). When a backend DTO changes, update this file in the same PR.
+- `shared/api/client.ts` defines `ApiClient`, `RequestOptions`, `ApiError` normalisation. **It has NO Nuxt imports** — keep it framework-agnostic so it is testable in isolation and cannot accidentally pick up SSR-only state.
+- `composables/useApi.ts` is the Nuxt-aware wrapper. It caches the `Api` facade on the Nuxt app instance (`nuxtApp.$api`) so every component gets the same instance, and wires `onError` into the toast store.
+- **NEVER call `$fetch` directly** from a component or page. Go through `useApi().<module>.<method>()`.
+
+### Pinia stores
+- `stores/auth.ts` is the **single source of truth** for auth state in the frontend. The route middleware MUST use `useAuthStore()`, never a localStorage-backed composable — we burned time on a redirect loop when middleware read stale state from a composable that initialised after it ran.
+- `stores/toast.ts` is the central error surface. `useApi` routes backend errors into `toast.error()` automatically; components only need to push their own UX-level messages (`toast.success('Saved')`).
+
+### Route grouping for dynamic segments
+Nuxt file-based routing does NOT allow `pages/foo/[id].vue` and `pages/foo/[id]/bar.vue` to coexist. When a dynamic segment needs children, **always use the directory form from the start**:
+```
+pages/admin/events/[id]/index.vue   ← detail page
+pages/admin/events/[id]/edit.vue    ← edit page
+pages/admin/events/[id]/sessions.vue ← (future)
+```
+Do not start with `[id].vue` and migrate later — the migration breaks existing links and deploy caches.
+
+### Dev-mode auth injection
+- `plugins/auth.client.ts` injects a **synthetic session** when `import.meta.dev && !auth.isAuthenticated`. This lets admin pages render without a live Keycloak instance.
+- The route `middleware/auth.ts` must short-circuit when `import.meta.dev` is true — otherwise it will try to redirect to the Keycloak OIDC endpoint that doesn't exist locally.
+- **Never** leave the synthetic session active in production builds. The plugin check is `import.meta.dev`, which is false in production. Do not widen that check.
+
+### Tailwind tokens
+- Use semantic tokens (`bg-brand-600`, `text-danger-700`), never raw hex. The palette lives in `tailwind.config.ts`.
+- Shadow tokens: `shadow-soft` for cards, `shadow-pop` for elevated surfaces, `shadow-overlay` for modals and popovers.
+- Legacy utility classes in `main.css` (`btn-primary`, `card`, `input-base`, `field-label`, `field-hint`, `field-error`) are preserved for backward compatibility with pre-F1 pages. New code should prefer `UiButton`, `UiCard`, `UiInput`, etc. instead of the raw classes — but the classes still exist because the login/pricing pages depend on them.
+
+### UI primitives contract
+Every `Ui*` component follows the same contract:
+- Props are typed with an interface; defaults go through `withDefaults`.
+- Forms use `modelValue` + `update:modelValue` (v-model compatible).
+- Errors are surfaced via an `error?: string` prop — never via thrown exceptions or a parent store.
+- Icons come from `lucide-vue-next`. Do NOT mix icon libraries.
+- Accessibility primitives (modal focus trap, menu, listbox) come from `@headlessui/vue`. Do NOT hand-roll focus management.
+
+### Error surfacing
+- Backend errors flow: `ApiClient.request` → `normaliseError` → `useApi.onError` → `toast.error(...)`.
+- 401 errors are deliberately swallowed at `useApi.onError` (they trigger a redirect to login instead).
+- 400 errors with a `errors: Record<string, string>` validation map are also swallowed globally — forms MUST catch them locally and map them onto field-level errors (`EventForm.vue` is the reference implementation).
+
+### YouTube embed rules (applies to F5 and beyond)
+- Always use the `youtube-nocookie.com/embed/{videoId}` domain, never `youtube.com/embed`.
+- Standard query string for every embed: `rel=0&modestbranding=1&showinfo=0&iv_load_policy=3&disablekb=1&cc_load_policy=0&playsinline=1&enablejsapi=1`.
+- The visible chrome (hover title bar, YouTube watermark area) is covered by a `pointer-events-none` gradient overlay inside a dedicated `components/room/YoutubePlayer.vue` wrapper. **Do not inline YouTube iframes anywhere else** — the wrapper is the single place the overlay logic, URL parameters, and JS API hooks are maintained.
+- The backend generates `youtubeEmbedUrl` on `SessionResponse`. The frontend wrapper is allowed to append additional query parameters but must never strip `modestbranding` or `rel=0` (both are required for ToS compliance + UX consistency).
+
+### Commit message shape (frontend slices)
+Frontend slices are committed as `feat(frontend): <slice summary>` with a short body listing the pages/components added. F1 and F2 are reference examples in the git log.
 
 ---
 
