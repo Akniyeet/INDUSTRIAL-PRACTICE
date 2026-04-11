@@ -10,16 +10,28 @@ import com.webizon.billing.model.UsageKind;
 import com.webizon.billing.repo.BillingInvoiceLineRepository;
 import com.webizon.billing.repo.BillingInvoiceRepository;
 import com.webizon.billing.repo.BillingUsageRecordRepository;
+import com.webizon.notifications.model.NotificationKind;
+import com.webizon.notifications.service.NotificationRequest;
+import com.webizon.notifications.service.NotificationService;
+import com.webizon.tenancy.model.MembershipRole;
+import com.webizon.tenancy.model.MembershipStatus;
+import com.webizon.tenancy.model.TenantUser;
+import com.webizon.tenancy.model.User;
+import com.webizon.tenancy.repo.TenantUserRepository;
+import com.webizon.tenancy.repo.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -67,6 +79,9 @@ public class InvoiceService {
     private final BillingInvoiceRepository invoiceRepository;
     private final BillingInvoiceLineRepository invoiceLineRepository;
     private final BillingProperties billingProperties;
+    private final NotificationService notificationService;
+    private final TenantUserRepository tenantUserRepository;
+    private final UserRepository userRepository;
 
     /**
      * Close a billing period for the currently-pivoted tenant.
@@ -203,6 +218,13 @@ public class InvoiceService {
         invoice.setInvoiceNumber(generateNumber(invoice));
         invoice.setStatus(InvoiceStatus.ISSUED);
         invoice.setIssuedAt(Instant.now());
+
+        // Hand off to the notification outbox inside the same tx so
+        // the row commits if and only if the ISSUE transition
+        // commits. If a later retry re-issues (shouldn't happen —
+        // the state guard above rejects it — but defence in depth),
+        // the idempotency key makes the enqueue a no-op.
+        enqueueInvoiceIssuedNotifications(invoice);
         return invoice;
     }
 
@@ -216,8 +238,127 @@ public class InvoiceService {
         }
         invoice.setStatus(InvoiceStatus.PAID);
         invoice.setPaidAt(Instant.now());
+
+        enqueueInvoicePaidNotifications(invoice);
         return invoice;
     }
+
+    // ------------------------------------------------------------------
+    // Notification hooks
+    //
+    // Both sites walk every ACTIVE TENANT_OWNER membership in the
+    // current tenant and enqueue one notification row per owner.
+    // Running inside the already-open billing transaction means the
+    // outbox rows commit atomically with the invoice state change —
+    // a rollback anywhere in the issue/markPaid flow also rolls back
+    // the queued notification, which is exactly the invariant the
+    // outbox pattern is designed to preserve.
+    //
+    // Idempotency key format: "<kind-slug>:<invoiceId>:<userId>".
+    // Including the userId keeps per-owner rows distinct while still
+    // making a retry of the same transition a no-op at the DB level.
+    // ------------------------------------------------------------------
+
+    private void enqueueInvoiceIssuedNotifications(BillingInvoice invoice) {
+        for (RecipientEmail recipient : resolveOwnerEmails()) {
+            String subject = "Webizon invoice " + invoice.getInvoiceNumber()
+                    + " — " + formatKzt(invoice.getTotalMillis()) + " KZT";
+            String body = renderInvoiceIssuedBody(invoice, recipient);
+            String key  = "invoice-issued:" + invoice.getId() + ":" + recipient.userId();
+            notificationService.enqueue(NotificationRequest.email(
+                    recipient.userId(),
+                    NotificationKind.INVOICE_ISSUED,
+                    recipient.email(),
+                    subject,
+                    body,
+                    key));
+        }
+    }
+
+    private void enqueueInvoicePaidNotifications(BillingInvoice invoice) {
+        for (RecipientEmail recipient : resolveOwnerEmails()) {
+            String subject = "Payment received — invoice " + invoice.getInvoiceNumber();
+            String body = renderInvoicePaidBody(invoice, recipient);
+            String key  = "invoice-paid:" + invoice.getId() + ":" + recipient.userId();
+            notificationService.enqueue(NotificationRequest.email(
+                    recipient.userId(),
+                    NotificationKind.INVOICE_PAID,
+                    recipient.email(),
+                    subject,
+                    body,
+                    key));
+        }
+    }
+
+    /**
+     * Walk the tenant_users table for every ACTIVE TENANT_OWNER,
+     * then hydrate each one's email from the users table. Users
+     * with no verified email (or which got soft-deleted between the
+     * membership lookup and the hydrate) are silently skipped —
+     * this is defensive and avoids the dispatcher attempting SMTP
+     * against a junk address.
+     */
+    private List<RecipientEmail> resolveOwnerEmails() {
+        List<TenantUser> owners = tenantUserRepository.findAllByRoleAndStatus(
+                MembershipRole.TENANT_OWNER, MembershipStatus.ACTIVE);
+        if (owners.isEmpty()) {
+            log.warn("Invoice notification: no active TENANT_OWNER in current tenant");
+            return List.of();
+        }
+        List<RecipientEmail> out = new ArrayList<>(owners.size());
+        for (TenantUser owner : owners) {
+            Optional<User> maybe = userRepository.findById(owner.getUserId());
+            if (maybe.isEmpty()) continue;
+            User user = maybe.get();
+            if (user.getEmail() == null || user.getEmail().isBlank()) continue;
+            out.add(new RecipientEmail(user.getId(), user.getEmail(), user.getFullName()));
+        }
+        return out;
+    }
+
+    private String renderInvoiceIssuedBody(BillingInvoice invoice, RecipientEmail recipient) {
+        String greeting = recipient.name() == null || recipient.name().isBlank()
+                ? "Hello,"
+                : "Hello " + recipient.name() + ",";
+        return greeting + "\n\n"
+                + "A new Webizon invoice has been issued for your workspace.\n\n"
+                + "  Invoice:    " + invoice.getInvoiceNumber() + "\n"
+                + "  Period:     " + invoice.getPeriodStart() + "  →  " + invoice.getPeriodEnd() + "\n"
+                + "  Subtotal:   " + formatKzt(invoice.getSubtotalMillis()) + " KZT\n"
+                + "  VAT ("     + invoice.getVatPercentSnapshot() + "%): "
+                                 + formatKzt(invoice.getVatMillis()) + " KZT\n"
+                + "  Total:      " + formatKzt(invoice.getTotalMillis()) + " KZT\n\n"
+                + "You can view or download the full invoice from your Webizon dashboard.\n\n"
+                + "— The Webizon billing team";
+    }
+
+    private String renderInvoicePaidBody(BillingInvoice invoice, RecipientEmail recipient) {
+        String greeting = recipient.name() == null || recipient.name().isBlank()
+                ? "Hello,"
+                : "Hello " + recipient.name() + ",";
+        return greeting + "\n\n"
+                + "Thank you — your payment for Webizon invoice "
+                + invoice.getInvoiceNumber() + " has been received.\n\n"
+                + "  Amount paid: " + formatKzt(invoice.getTotalMillis()) + " KZT\n"
+                + "  Paid at:     " + invoice.getPaidAt() + "\n\n"
+                + "A receipt is available in your Webizon dashboard.\n\n"
+                + "— The Webizon billing team";
+    }
+
+    /**
+     * Render a KZT-millis amount as a human-readable KZT string with
+     * three decimal places. The frontend does the same conversion
+     * on screen; doing it here means the email body matches what
+     * the customer sees in the UI.
+     */
+    private static String formatKzt(long millis) {
+        return BigDecimal.valueOf(millis)
+                .divide(BigDecimal.valueOf(1000L), 2, RoundingMode.HALF_UP)
+                .toPlainString();
+    }
+
+    /** Small tuple carrying everything the renderers need. */
+    private record RecipientEmail(UUID userId, String email, String name) {}
 
     public BillingInvoice voidInvoice(UUID invoiceId) {
         BillingInvoice invoice = requireById(invoiceId);

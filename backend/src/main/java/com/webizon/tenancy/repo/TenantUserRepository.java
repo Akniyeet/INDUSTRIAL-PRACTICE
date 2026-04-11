@@ -1,5 +1,6 @@
 package com.webizon.tenancy.repo;
 
+import com.webizon.tenancy.model.MembershipRole;
 import com.webizon.tenancy.model.MembershipStatus;
 import com.webizon.tenancy.model.TenantUser;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,6 +23,15 @@ public interface TenantUserRepository extends JpaRepository<TenantUser, UUID> {
     Optional<TenantUser> findByUserId(UUID userId);
 
     List<TenantUser> findAllByStatus(MembershipStatus status);
+
+    /**
+     * Tenant-scoped lookup of every membership with the given role
+     * and status. Used by cross-module integrations that need to
+     * address a specific role in the current workspace — e.g. the
+     * billing notifications hook addresses every TENANT_OWNER when
+     * an invoice is issued.
+     */
+    List<TenantUser> findAllByRoleAndStatus(MembershipRole role, MembershipStatus status);
 
     /**
      * List every membership a given user has across ALL tenants. This crosses

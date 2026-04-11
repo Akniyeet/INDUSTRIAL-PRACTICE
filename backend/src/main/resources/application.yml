@@ -82,6 +82,18 @@ spring:
           issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:http://localhost:8180/realms/webizon}
           jwk-set-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI:http://localhost:8180/realms/webizon/protocol/openid-connect/certs}
 
+  mail:
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1025}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SPRING_MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${SPRING_MAIL_SMTP_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
+
 server:
   port: 8080
   compression:
@@ -140,6 +152,23 @@ webizon:
       storage-gb-month: 200
       payment-processing-percent: 3
     vat-percent: 12
+
+  notifications:
+    sender-name: ${WEBIZON_NOTIFICATIONS_SENDER_NAME:Webizon}
+    sender-address: ${WEBIZON_NOTIFICATIONS_SENDER_ADDRESS:no-reply@webizon.kz}
+    # Exponential back-off ladder. Index N is the delay before retry N+1.
+    # Any attempt past the ladder length reuses the last rung as a ceiling.
+    backoff:
+      - 1m
+      - 5m
+      - 30m
+      - 2h
+      - 6h
+    dispatch:
+      tick-interval: 20s
+      initial-delay: 15s
+      batch-size: 100
+      stale-sending-timeout: 5m
 
 # ============================================================================
 # MANAGEMENT / ACTUATOR

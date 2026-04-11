@@ -112,6 +112,12 @@
             <version>${minio.version}</version>
         </dependency>
 
+        <!-- Mail (notifications outbox / SMTP delivery) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- ClickHouse -->
         <dependency>
             <groupId>com.clickhouse</groupId>
