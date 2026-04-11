@@ -82,6 +82,18 @@ public class ChatMessage extends TenantAwareEntity {
     @Column(name = "is_hidden", nullable = false)
     private boolean hidden;
 
+    /**
+     * Admin curation flag: when {@code true}, the historical chat
+     * replay engine skips this message in every future AUTO session.
+     * Orthogonal to {@link #deleted} and {@link #hidden} — the message
+     * remains fully visible in the live audit trail; only the replay
+     * pipeline ignores it. Used for off-topic banter, links that
+     * expired, and answered questions that would be confusing out of
+     * context.
+     */
+    @Column(name = "excluded_from_replay", nullable = false)
+    private boolean excludedFromReplay;
+
     @Column(name = "deleted_by_user_id", columnDefinition = "UUID")
     private UUID deletedByUserId;
 

@@ -37,18 +37,48 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
     List<ChatMessage> findLiveFeed(@Param("sessionId") UUID sessionId, Pageable pageable);
 
     /**
-     * All non-deleted messages for a source LIVE session ordered by
-     * their captured {@code offset_seconds}. Used by the historical
-     * replay engine to schedule message insertion during AUTO sessions.
+     * All replay-eligible messages for a source LIVE session ordered
+     * by their captured {@code offset_seconds}. Used by the admin
+     * curation view to show the full transcript that would replay in
+     * future AUTO sessions — deleted and hidden rows are excluded,
+     * but messages marked {@code excludedFromReplay} are still
+     * returned so the admin can toggle them back on.
      */
     @Query("""
            select m from ChatMessage m
            where m.sessionId = :sourceSessionId
              and m.deleted = false
+             and m.hidden = false
              and m.offsetSeconds is not null
            order by m.offsetSeconds asc, m.createdAt asc
            """)
     List<ChatMessage> findHistoricalTranscript(@Param("sourceSessionId") UUID sourceSessionId);
+
+    /**
+     * Replay-window query: every message for the source session
+     * whose offset falls inside {@code (fromOffsetExclusive,
+     * toOffsetInclusive]}, filtered to the replay pipeline's rules
+     * — not deleted, not hidden, not admin-excluded. The tick loop
+     * calls this with its advancing cursor on every pass.
+     *
+     * <p>The interval is half-open on the left so the same row can
+     * never be dispatched twice by two consecutive ticks.
+     */
+    @Query("""
+           select m from ChatMessage m
+           where m.sessionId = :sourceSessionId
+             and m.deleted = false
+             and m.hidden = false
+             and m.excludedFromReplay = false
+             and m.offsetSeconds is not null
+             and m.offsetSeconds > :fromOffsetExclusive
+             and m.offsetSeconds <= :toOffsetInclusive
+           order by m.offsetSeconds asc, m.createdAt asc
+           """)
+    List<ChatMessage> findReplayWindow(
+            @Param("sourceSessionId") UUID sourceSessionId,
+            @Param("fromOffsetExclusive") int fromOffsetExclusive,
+            @Param("toOffsetInclusive") int toOffsetInclusive);
 
     /**
      * Count non-deleted messages a user has sent in a session. Used by

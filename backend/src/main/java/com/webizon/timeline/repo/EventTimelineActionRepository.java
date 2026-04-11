@@ -57,5 +57,29 @@ public interface EventTimelineActionRepository extends JpaRepository<EventTimeli
             @Param("sourceSessionId") UUID sourceSessionId,
             @Param("fromOffset") int fromOffset);
 
+    /**
+     * Timeline rows inside a half-open window
+     * {@code (fromOffsetExclusive, toOffsetInclusive]}. The replay
+     * engine's tick loop calls this once per AUTO session per tick with
+     * the advancing cursor so the same row can never be dispatched by
+     * two consecutive ticks.
+     *
+     * <p>The left edge is exclusive on purpose: after a tick dispatches
+     * a row whose offset equals the current cursor, it advances the
+     * cursor to that offset; the next tick must not re-emit the row.
+     */
+    @Query("""
+           select a from EventTimelineAction a
+           where a.sourceSessionId = :sourceSessionId
+             and a.active = true
+             and a.offsetSeconds > :fromOffsetExclusive
+             and a.offsetSeconds <= :toOffsetInclusive
+           order by a.offsetSeconds asc, a.createdAt asc
+           """)
+    List<EventTimelineAction> findReplayWindow(
+            @Param("sourceSessionId") UUID sourceSessionId,
+            @Param("fromOffsetExclusive") int fromOffsetExclusive,
+            @Param("toOffsetInclusive") int toOffsetInclusive);
+
     List<EventTimelineAction> findAllByEventIdAndActionType(UUID eventId, TimelineActionType type);
 }

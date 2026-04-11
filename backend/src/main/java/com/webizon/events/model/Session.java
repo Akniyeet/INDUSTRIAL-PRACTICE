@@ -73,6 +73,21 @@ public class Session extends TenantAwareEntity {
     @Column(name = "created_by_user_id", nullable = false, updatable = false, columnDefinition = "UUID")
     private UUID createdByUserId;
 
+    /**
+     * Resumable replay cursor for AUTO sessions — the highest offset
+     * (seconds) the {@code TimelineReplayEngine} has already dispatched
+     * for this session. On every tick the engine fetches the window
+     * {@code (lastReplayOffsetSeconds, currentOffsetSeconds]} of
+     * timeline actions and historical chat messages and advances the
+     * cursor atomically.
+     *
+     * <p>Unused for LIVE sessions; they produce the timeline rows that
+     * AUTO sessions later replay. Kept {@code NOT NULL} with a default
+     * of zero so the replay window is always well-defined.
+     */
+    @Column(name = "last_replay_offset_seconds", nullable = false)
+    private int lastReplayOffsetSeconds;
+
     public boolean isFinalized() {
         return finalizedAt != null;
     }

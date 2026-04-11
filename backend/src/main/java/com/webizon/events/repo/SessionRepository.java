@@ -65,4 +65,36 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
 
     List<Session> findAllByEventIdAndStatusInOrderByStartTimeAsc(UUID eventId,
                                                                  List<SessionStatus> statuses);
+
+    // ------------------------------------------------------------------
+    // Scheduler read paths (Phase 8 — Auto Sessions)
+    // ------------------------------------------------------------------
+
+    /**
+     * Every session in the given status. The auto-session lifecycle
+     * scheduler uses this twice per tick — once for
+     * {@code AUTO_SCHEDULED} rows whose {@code startTime} has arrived,
+     * once for {@code AUTO_LIVE} rows the replay engine needs to
+     * advance. The query is cross-tenant by design: the scheduler
+     * runs outside of any HTTP request so a tenant filter would be
+     * meaningless; it uses {@code @AllowCrossTenant} at the call site.
+     */
+    @Query("""
+           select s from Session s
+           where s.status = :status
+           """)
+    List<Session> findAllByStatus(@Param("status") SessionStatus status);
+
+    /**
+     * AUTO sessions whose {@code startTime} has passed and are still
+     * in {@code AUTO_SCHEDULED}. These are the rows the lifecycle
+     * scheduler promotes to {@code AUTO_LIVE} on each tick.
+     */
+    @Query("""
+           select s from Session s
+           where s.status = com.webizon.events.model.SessionStatus.AUTO_SCHEDULED
+             and s.startTime <= :cutoff
+           order by s.startTime asc
+           """)
+    List<Session> findAutoSessionsReadyToStart(@Param("cutoff") Instant cutoff);
 }
