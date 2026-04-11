@@ -1,0 +1,755 @@
+# WEBIZON — Engineering Constitution
+
+> This document is the single source of truth for engineering decisions on Webizon.
+> It is written as an instruction manual for engineers and AI assistants working on this codebase.
+> Every rule here is intentional. Before violating any rule, you must write an ADR explaining why.
+
+---
+
+## 1. Product Identity
+
+**Webizon** is a multi-tenant SaaS webinar / live-event platform.
+
+It is **not**:
+- A Zoom clone
+- A YouTube wrapper
+- A single-tenant internal tool
+
+It **is**:
+- A standalone commercial product
+- A pay-per-use SaaS, billed in **Kazakhstani Tenge (KZT)**
+- Designed to handle **50,000–60,000 concurrent viewers per session** without degradation
+- Designed to host **multiple parallel live events** across many independent customers (tenants)
+
+### Target customers
+- **B2B**: online schools, corporate training departments, EdTech companies
+- **B2C / SMB**: individual coaches, teachers, content creators, small studios
+
+### Core value proposition
+> "Run a professional webinar for thousands of participants without worrying about infrastructure,
+> pay only for what you use, go from zero to live in 5 minutes."
+
+---
+
+## 2. Business Model (Pay-Per-Use)
+
+Billing is **consumption-based**, denominated in **KZT**.
+
+### Pricing units (configurable per tenant plan)
+| Unit | Description | Default rate (KZT) |
+|------|-------------|---------------------|
+| Webinar seat | Each unique participant who joined a live/auto session | 15 ₸ / seat |
+| Cloud storage | Per GB per month over free quota | 200 ₸ / GB / month |
+| Payment processing | Percentage of turnover when tenant uses Webizon checkout | 3% |
+| Auto-webinar replay view | Each unique viewer of an auto session | 10 ₸ / seat |
+
+### Free trial
+- 14 days
+- Up to 10 participants per session
+- All features unlocked
+- No credit card required to start
+
+### Billing principles
+- **Usage is metered**, not declared
+- Usage events flow from the live path → Kafka → billing ledger
+- Billing ledger is **append-only and immutable**
+- Invoices are generated monthly from the ledger
+- Overages are charged automatically via saved payment method
+- A tenant with an unpaid invoice older than 14 days is **soft-suspended** (existing events stay, new events blocked)
+
+### Non-negotiable billing rules
+1. **Never double-charge**. Billing events must be idempotent (deduplicated by `(tenant_id, session_id, profile_id, event_type)`).
+2. **Never lose a billing event**. Every billable action is persisted before the user sees success.
+3. **Never bill for infrastructure failures**. If a session crashes, affected seats are not billed.
+4. **Ledger is immutable**. Corrections are new entries, never edits.
+
+---
+
+## 3. Scale Targets (Hard Requirements)
+
+These are not aspirations. They are engineering constraints.
+
+| Metric | Target |
+|--------|--------|
+| Concurrent viewers per session | **60,000** |
+| Concurrent sessions per tenant | 50 |
+| Concurrent sessions across platform | 500 |
+| Chat messages per second per session | 1,000 |
+| WebSocket connection establishment rate | 5,000 / second (burst) |
+| API p95 latency (REST) | < 200 ms |
+| Chat message delivery p95 | < 250 ms end-to-end |
+| Analytics event ingestion rate | 100,000 / second |
+| Session recording playback start | < 2 seconds |
+| Uptime SLO (live sessions) | 99.9% monthly |
+
+**If a design decision cannot meet these targets, it is the wrong decision. Rework it.**
+
+---
+
+## 4. Technology Stack (Locked)
+
+These choices are final. Changing any of them requires an ADR approved before work begins.
+
+### Backend API (Business logic)
+- **Language**: Java 21 (LTS)
+- **Framework**: Spring Boot 3.2+ with **virtual threads enabled** (Project Loom)
+- **Build**: Maven (not Gradle — simpler for CI, better IDE tooling in our team)
+- **HTTP**: Spring MVC (not WebFlux — virtual threads give us non-blocking benefits with blocking-style code)
+- **Validation**: Jakarta Validation (`@Valid`)
+- **API docs**: springdoc-openapi (OpenAPI 3.1)
+
+**Why Java/Spring?** Team expertise, mature ecosystem for billing/ORM/Stripe, Spring Boot 3 + Loom solves the concurrency story, the WebSocket bottleneck is offloaded to Centrifugo so the API server only handles REST CRUD and event publishing.
+
+### Real-time layer (WebSockets)
+- **Centrifugo v5** — standalone, purpose-built real-time server written in Go
+- Clients connect **directly** to Centrifugo, not to the Java API
+- Java API **publishes** to Centrifugo via HTTP API (server-to-server)
+- Centrifugo handles: fan-out, presence, history, connection management
+- Scaling: Centrifugo cluster with **Redis engine** for pub/sub between nodes
+
+**Why Centrifugo?** One node handles 1M+ concurrent connections. Purpose-built for our exact problem. Removes fan-out from our application code entirely.
+
+### Persistence
+- **Primary DB**: PostgreSQL 16
+- **Connection pooler**: PgBouncer (transaction mode)
+- **Migrations**: Flyway
+- **ORM**: Spring Data JPA + Hibernate (with `@BatchSize`, query plan caching, read-only transactions where applicable)
+- **Multi-tenancy**: Shared schema, `tenant_id` discriminator column on every domain table, enforced via Hibernate filter + repository base class
+- **Row-level security**: PostgreSQL RLS policies as defense-in-depth against tenant leakage
+
+### Analytics Database
+- **ClickHouse** — columnar, purpose-built for high-volume analytics
+- Stores: behavioral events, retention data, viewer timelines, CTA interactions
+- Ingested via Kafka Connect ClickHouse sink (or Kafka consumer writing in batches)
+- Queried by the Analytics API for dashboards
+- **Never queried in the hot path** (no synchronous user-facing queries)
+
+### Caching & Ephemeral State
+- **Redis 7 (Cluster mode)** for:
+  - Rate limiting (flood protection, slow mode)
+  - Session state cache
+  - Centrifugo pub/sub engine
+  - Distributed locks (Redlock where needed)
+  - Ephemeral presence counters
+
+### Message Broker
+- **Apache Kafka** (3 brokers min in production) for:
+  - Chat message persistence pipeline
+  - Analytics event pipeline
+  - Billing event pipeline
+  - Integration events (tenant provisioned, session started, etc.)
+  - Lead signal generation
+  - Dead-letter queues for all of the above
+
+### Object Storage
+- **S3-compatible** (AWS S3 in production, MinIO in dev/local)
+- Stores: event cover images, uploaded CTA files, session recordings, exported reports
+- Direct uploads via **pre-signed URLs** (never stream large files through the API)
+
+### Search (later phase)
+- **OpenSearch** for event catalog search and chat log search (not MVP)
+
+### Frontend
+- **Framework**: Nuxt 4 + Vue 3 + TypeScript (strict mode)
+- **State**: Pinia
+- **Styling**: Tailwind CSS + CSS variables for theming
+- **UI library**: @nuxt/ui v4 (accessible, Tailwind-native)
+- **Real-time client**: `centrifuge-js` (official Centrifugo client)
+- **HTTP client**: Native `$fetch` with a typed wrapper
+- **Forms**: vee-validate + zod for runtime validation
+- **i18n**: @nuxtjs/i18n (KZ, RU, EN from day one)
+- **Testing**: Vitest (unit) + Playwright (e2e)
+
+### Billing / Payments
+- **Kazakhstan**: CloudPayments Kazakhstan or PayBox.money (both support KZT and are PCI-compliant)
+- **International**: Stripe (for customers outside KZ, later phase)
+- **Tax**: KZ VAT (12%) — invoice generation must include VAT breakdown
+- **Invoices**: PDF generated server-side (OpenHTMLToPDF or similar)
+
+### Authentication & Identity
+- **Provider**: Keycloak 24 (self-hosted)
+- **Why Keycloak?** Multi-realm (one realm per tenant possible), OIDC, social login, MFA, account recovery, admin UI
+- **Tokens**: JWT (RS256), short-lived access tokens (15 min), rotating refresh tokens (30 days)
+- **Tenant isolation in tokens**: JWT includes `tenant_id` and `role` claims. The API validates both on every request.
+
+### Observability (non-negotiable from day one)
+- **Metrics**: Prometheus + Grafana
+- **Tracing**: OpenTelemetry → Jaeger (or Grafana Tempo)
+- **Logs**: Structured JSON logs → Loki (or ELK)
+- **Alerting**: Alertmanager with PagerDuty-style escalation
+- **Health checks**: Spring Actuator, liveness + readiness endpoints
+- **Synthetic monitoring**: Uptime checks on public endpoints every 60s
+
+### Deployment
+- **Containers**: Docker (multi-stage builds, non-root user, distroless base where possible)
+- **Orchestration**: Kubernetes (production) + Docker Compose (local dev)
+- **CI/CD**: GitLab CI → image registry → ArgoCD (or plain `kubectl apply` in Helm chart form)
+- **Environments**: `local` → `staging` → `production`
+- **Secrets**: Kubernetes Secrets backed by External Secrets Operator → HashiCorp Vault (or AWS/GCP Secret Manager)
+
+---
+
+## 5. Architecture Overview
+
+```
+                    ┌──────────────────┐
+                    │    Browsers      │
+                    │  (Nuxt 4 SSR)    │
+                    └────────┬─────────┘
+                             │ HTTPS + WSS
+        ┌────────────────────┼─────────────────────┐
+        │                    │                     │
+        ▼                    ▼                     ▼
+  ┌──────────┐        ┌──────────────┐      ┌─────────────┐
+  │  Nginx   │        │  Centrifugo  │      │   Keycloak  │
+  │  (ingress)       │   (cluster)  │      │   (auth)    │
+  └────┬─────┘        └──────┬───────┘      └─────────────┘
+       │                     │
+       ▼                     │ pub/sub
+  ┌──────────────┐           ▼
+  │ Webizon API  │──publish──┘
+  │ (Spring 3)   │
+  │ virtual      │
+  │ threads      │
+  └──┬───┬───┬───┘
+     │   │   │
+     │   │   └──────────────┐
+     │   │                  │
+     ▼   ▼                  ▼
+  ┌────┐ ┌─────┐      ┌──────────┐
+  │ PG │ │Redis│      │  Kafka   │
+  │+Bouncer     │      │ (3 nodes)│
+  └────┘ └─────┘      └────┬─────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │ ClickHouse  │
+                    │ (analytics) │
+                    └─────────────┘
+```
+
+### Request paths
+
+**Cold path (REST)**: Browser → Nginx → Webizon API → PostgreSQL / Kafka / S3
+**Hot path (real-time)**: Browser → Centrifugo (WSS) ← publish ← Webizon API
+**Chat write path**: Browser → Webizon API (validate, policy check) → Kafka → ChatPersistenceConsumer → PostgreSQL; simultaneously API publishes to Centrifugo for fan-out
+**Chat read (history)**: Browser → Webizon API → PostgreSQL (with Redis cache)
+**Analytics write path**: Any service → Kafka → ClickHouse consumer → ClickHouse
+**Analytics read path**: Browser → Webizon API → ClickHouse (aggregation queries)
+
+### Why this architecture scales to 60K/session
+
+1. **The API server never holds WebSocket connections.** Centrifugo does. One API pod can drive dozens of Centrifugo channels without holding any socket state.
+2. **Fan-out is O(1) from the API's perspective.** Publishing a chat message is a single HTTP POST to Centrifugo. Centrifugo delivers to all 60K subscribers.
+3. **Chat persistence is async.** The API publishes to Kafka and returns 200 OK. A consumer batch-writes to PostgreSQL. DB is never the bottleneck.
+4. **Analytics never hit PostgreSQL.** ClickHouse absorbs the firehose.
+5. **Redis is Redis.** Flood protection and slow mode are O(1) Lua scripts.
+6. **Horizontal scaling**: API is stateless. Add pods until REST latency targets are met. Centrifugo is clustered via Redis engine. Both scale independently.
+
+---
+
+## 6. Multi-Tenancy (CRITICAL)
+
+Webizon is **multi-tenant from line one**. This is not a feature to add later — it's a foundational constraint that affects every query, every cache key, every log line, every metric label.
+
+### Isolation model: **Shared database, shared schema, `tenant_id` discriminator**
+- Every domain table has `tenant_id UUID NOT NULL` as the first column
+- Every index that includes another column starts with `tenant_id`
+- Every query is filtered by `tenant_id`, enforced at the repository layer
+- PostgreSQL **Row-Level Security (RLS)** policies enforce this at the database level (defense in depth)
+
+### Implementation rules (non-negotiable)
+1. **`TenantContext`** — a `ThreadLocal<UUID>` set by a Spring `Filter` on every authenticated request, read from the `tenant_id` JWT claim. Never set manually outside the filter.
+2. **`TenantAwareRepository<T, ID>`** — base repository class that automatically adds `WHERE tenant_id = :currentTenant` to every query. Never write raw queries that bypass it.
+3. **Hibernate Filter** `@FilterDef(name="tenantFilter")` enabled globally on every entity with `tenant_id`.
+4. **Kafka messages** include `tenant_id` in headers and payload. Consumers set `TenantContext` before processing.
+5. **Cache keys** always include tenant_id: `tenant:{tenantId}:session:{sessionId}:*`
+6. **Log MDC** (mapped diagnostic context) includes `tenant_id` on every log line for audit and debugging.
+7. **Metrics** tagged with `tenant_id` (bounded set — aggregate beyond top-N tenants).
+8. **Centrifugo channel names** prefixed with tenant: `tenant.{tenantId}.session.{sessionId}.chat`
+9. **S3 object keys** prefixed with tenant: `tenants/{tenantId}/sessions/{sessionId}/recordings/...`
+
+### Tenant lifecycle
+- **Signup** → creates Tenant, Owner User, default Plan (trial), provisions a Keycloak group, seeds default CTA templates
+- **Suspend** (unpaid) → block new sessions, preserve data, show banner in admin
+- **Delete** (GDPR) → soft delete for 30 days, then hard delete including S3 objects and Kafka-archived data
+- **Export** (GDPR portability) → generate ZIP of tenant's data on demand
+
+### Anti-patterns (never do this)
+- ❌ Storing "shared" data without a tenant_id
+- ❌ Admin tools that query across tenants without explicit `@AllowCrossTenant` audit annotation
+- ❌ Caching values under tenant-agnostic keys
+- ❌ Metrics that leak cardinality (e.g., one series per tenant_id forever)
+- ❌ Running a migration that doesn't account for `tenant_id`
+
+---
+
+## 7. Domain Model (High Level)
+
+### Core entities (top of mind)
+- **Tenant** — the paying customer (organization or individual)
+- **User** — a member of a Tenant with a role (Owner, Admin, Moderator, Presenter)
+- **Plan** — pricing tier a Tenant is on (Trial, Flex)
+- **UsageMeter** — accumulating counters per tenant per billing cycle
+- **Invoice** — generated monthly from UsageMeter + BillingLedger
+- **PaymentMethod** — saved card/bank reference via billing provider
+- **Event** — reusable content definition (title, cover, speaker, slug, landing config)
+- **Session** — a concrete occurrence of an Event (LIVE or AUTO, scheduled at a specific time)
+- **Room** — runtime view of a Session (state, active CTA, chat settings)
+- **Participant** — a joiner of a Session (profileId + tenant + session)
+- **ChatMessage** — a single chat entry (with moderation flags)
+- **TimelineAction** — offset-based action to execute during playback
+- **CTA** — conversion/material element (button, file, link)
+- **ModerationAction** — audit row for any moderator action
+- **AnalyticsEvent** — behavioral event (writes to Kafka → ClickHouse)
+- **BillingEvent** — billable action (writes to Kafka → PostgreSQL ledger)
+- **Recording** — stored video asset tied to a Session
+
+### Hard rules
+- An **Event** is reusable content. A **Session** is a one-time run. **Never** reactivate a finished Session.
+- A **LIVE Session** can have many **AUTO Sessions** derived from it (replay slots). Each AUTO is a new Session row.
+- A **Participant** belongs to exactly one Session. Multiple Sessions for the same user = multiple Participant rows.
+- A **ChatMessage** belongs to a Session. Historical chat replay copies the original message IDs by reference, not by duplication.
+- **Analytics data** is partitioned by `(tenant_id, session_id, created_at)` in ClickHouse.
+
+---
+
+## 8. Real-Time Layer (Centrifugo)
+
+### Channel naming convention
+All Centrifugo channels are prefixed with `tenant.{tenantId}`. This ensures tenant isolation at the message broker level.
+
+| Purpose | Channel |
+|---------|---------|
+| Chat messages | `tenant.{tid}.session.{sid}.chat` |
+| System events | `tenant.{tid}.session.{sid}.system` |
+| Timeline / CTA sync | `tenant.{tid}.session.{sid}.timeline` |
+| Presence updates | `tenant.{tid}.session.{sid}.presence` |
+| Private user messages | `$tenant.{tid}.user.{uid}` (Centrifugo private prefix `$`) |
+
+### Authentication
+- Client requests a **short-lived Centrifugo connection token** from the Webizon API (`POST /api/v1/rt/token`)
+- The API validates the user's JWT, builds a Centrifugo JWT (HMAC with shared secret), and returns it
+- Client connects to Centrifugo with that token
+- Centrifugo validates the token and enforces channel-level permissions via its config
+
+### Publishing from the API
+- Spring uses a thin **CentrifugoClient** component that wraps the Centrifugo HTTP API
+- All publishes are **fire-and-forget with retry**: if Centrifugo is temporarily unreachable, we enqueue to a Kafka DLQ and retry asynchronously
+- Publishes are **idempotent** — each publish includes a `message_id` that Centrifugo uses for deduplication
+
+### History & replay
+- Centrifugo's built-in channel history is used for short-term (last N messages) chat scroll-back on reconnect
+- Long-term history lives in PostgreSQL (ChatMessage table), fetched via REST API with pagination
+
+### Reconnect semantics
+- Clients reconnect automatically with exponential backoff (`centrifuge-js` handles this)
+- On reconnect, the client requests a new token (in case the old one expired) and resubscribes to the same channels
+- Missed messages are recovered from Centrifugo history (< 5 min) or REST API (older)
+
+---
+
+## 9. Chat Subsystem (Hot Path)
+
+The chat is the most load-sensitive component. Every design decision here prioritizes throughput and deterministic latency.
+
+### Write path
+1. Client sends `POST /api/v1/sessions/{id}/chat` with the message payload
+2. API authenticates, loads TenantContext, runs policy chain:
+   - User is not banned/muted
+   - Chat is enabled for this session
+   - Slow mode check (Redis Lua)
+   - Flood protection check (Redis Lua)
+   - Forbidden word filter
+   - Link policy
+3. API publishes to Kafka topic `webizon.chat.messages` (partitioned by `session_id`)
+4. API publishes to Centrifugo channel `tenant.{tid}.session.{sid}.chat`
+5. API returns `202 Accepted` with a `messageId`
+6. A `ChatPersistenceConsumer` reads the Kafka topic in batches (up to 500 messages) and bulk-inserts into PostgreSQL
+7. A `BillingEventConsumer` reads the same topic and updates UsageMeter (no-op — chat isn't billed, but the path is shared)
+
+**Why publish to Centrifugo before persistence is confirmed?** Because users need to see messages instantly. Persistence failures are handled via DLQ and alerting — we accept **eventual durability** in exchange for sub-250ms delivery. If a message is lost due to Kafka failure, it's reported via monitoring and the user may resend.
+
+### Rate limiting
+- **Slow mode**: configurable per session (0, 5, 10, 20, 30, 60 seconds). Enforced via Redis Lua `INCR` + `EXPIRE`.
+- **Flood protection**: hard limit of 5 messages per 10 seconds regardless of slow mode. Same Lua pattern.
+- **Moderators bypass** slow mode but not flood protection.
+
+### Chat history
+- Last N messages (default 50) are fetched on room entry from Centrifugo history
+- Scrollback calls `GET /api/v1/sessions/{id}/chat?before={cursor}` and hits PostgreSQL directly
+- The chat table is indexed on `(tenant_id, session_id, created_at DESC)` for this exact query
+
+### Moderation actions
+- Deletion: marks `is_deleted=true`, publishes `CHAT_MESSAGE_DELETED` to Centrifugo; clients hide it
+- Mute: writes to `chat_user_status`, publishes private event to the user's channel
+- All moderation actions are append-only rows in `moderation_actions` for audit
+
+### Historical chat replay (auto sessions)
+- When an AUTO session starts, the API loads the source LIVE session's messages with offsets
+- A scheduler (server-side) publishes them to Centrifugo at the right offsets as the playback progresses
+- Admins can pre-filter the replay set (exclude spam/abusive messages) via an admin UI
+
+---
+
+## 10. Authentication & Authorization
+
+### Auth flow (browser)
+1. User visits `webizon.kz` or `{tenant-slug}.webizon.kz`
+2. Clicks "Sign in" → redirected to Keycloak OIDC flow
+3. Keycloak authenticates, redirects back with an authorization code
+4. Frontend exchanges code for tokens (via a server-side callback to protect the client secret)
+5. Frontend stores tokens in an **HttpOnly, Secure, SameSite=Lax cookie**
+6. Every subsequent API call sends the access token; refresh happens silently
+
+### Authorization model
+- **Roles**: `platform_admin`, `tenant_owner`, `tenant_admin`, `tenant_moderator`, `tenant_presenter`, `participant`
+- **Role is scoped to a tenant** (except `platform_admin`)
+- **JWT claims**:
+  ```json
+  {
+    "sub": "user-uuid",
+    "profile_id": "user-uuid",
+    "tenant_id": "tenant-uuid",
+    "role": "tenant_admin",
+    "email": "...",
+    "exp": ...,
+    "iss": "https://auth.webizon.kz/realms/webizon"
+  }
+  ```
+- Spring Security + `@PreAuthorize` annotations on every controller method
+- A `@RequireRole("tenant_admin")` meta-annotation for common cases
+- **Every controller method must have an explicit authorization annotation. `@PreAuthorize("permitAll()")` is allowed but must be justified in a comment.**
+
+### Public endpoints (unauthenticated)
+- Landing page data: `GET /api/v1/public/events/{slug}`
+- Tenant signup: `POST /api/v1/public/signup`
+- Keycloak callback: `GET /auth/callback`
+- Webhook receivers (billing): `POST /api/v1/webhooks/{provider}` (verified by HMAC signature, not JWT)
+
+### Participant auth
+- Participants are **real users**. No anonymous viewing. Enforced consistently with EDUSER's principle.
+- However, **signup friction is minimized**: email-only magic link signup is supported for participants (click link → instantly a Webizon account, can upgrade to full account later)
+- This avoids requiring password creation to join a webinar while still getting a unique `profile_id`
+
+---
+
+## 11. Billing Subsystem (Critical for a SaaS)
+
+### Data model
+- **UsageMeter**: one row per `(tenant_id, billing_period, metric)`, updated via atomic increments from the BillingEventConsumer
+- **BillingLedger**: append-only, one row per billable event, immutable
+- **Invoice**: one row per `(tenant_id, billing_period)`, generated at period close
+- **PaymentMethod**: tokenized card reference from CloudPayments/PayBox (we never store PAN)
+- **Subscription**: current plan, billing period anchor, billing status
+
+### Metering pipeline
+```
+live event happens → API emits billing event → Kafka topic webizon.billing.events
+                                                       ↓
+                                    BillingEventConsumer (idempotent by event_id)
+                                                       ↓
+                              INSERT INTO billing_ledger (append-only)
+                                                       ↓
+                              UPDATE usage_meter SET count = count + 1
+```
+
+### Invoicing
+- A scheduled job (Quartz or Spring `@Scheduled`) runs on the 1st of each month
+- For each active tenant, it reads UsageMeter for the closed period
+- Computes charges per metric × rate
+- Applies VAT (12%)
+- Generates a PDF invoice
+- Stores in S3 with a presigned URL that expires in 7 days
+- Sends email notification
+- Attempts to charge the default PaymentMethod automatically
+- Records the payment attempt outcome in `payment_attempts`
+
+### Payment failure handling
+- Day 0: payment fails → retry in 3 days
+- Day 3: second attempt → if fails, send dunning email, retry in 7 days
+- Day 10: third attempt → if fails, send final warning
+- Day 14: soft-suspend tenant (block new sessions, show banner)
+- Day 30: disable all sessions
+- Day 90: data retention expires (per ToS), eligible for hard delete
+
+### Non-negotiable billing invariants
+1. **Double-entry safety**: never update UsageMeter without also inserting into BillingLedger
+2. **Idempotency keys**: every billing event has `(tenant_id, session_id, profile_id, event_type, unique_nonce)` — duplicates are silently ignored
+3. **Event ordering**: billing events are partitioned in Kafka by `tenant_id` so ordering is preserved per tenant
+4. **Reconciliation**: a nightly job compares UsageMeter totals to BillingLedger aggregates; any drift triggers an alert
+
+---
+
+## 12. Analytics Subsystem
+
+### Event ingestion
+- Any significant user action emits an `AnalyticsEvent` to Kafka topic `webizon.analytics.events`
+- Events are small JSON payloads with: `tenant_id`, `event_id`, `session_id`, `profile_id`, `event_type`, `offset_seconds`, `metadata`, `created_at`
+- A Kafka → ClickHouse connector (or a custom consumer batching into ClickHouse `INSERT`) ingests them
+- **Target ingestion rate**: 100,000 events/sec across all tenants
+
+### Event types (canonical list)
+```
+landing_viewed, auth_started, auth_completed,
+room_entered, room_left, heartbeat,
+chat_message_sent, chat_reply_sent, chat_like,
+cta_impression, cta_click, cta_download,
+watch_milestone (10m, 30m, 50%, 100%),
+moderation_warning, moderation_mute, moderation_ban,
+auto_slot_selected, notification_opted_in
+```
+
+### Query patterns
+- Dashboard: aggregated counts and retention curves, cached in Redis for 60 seconds
+- Retention chart: `SELECT minute, count() FROM analytics_events WHERE session_id = ? GROUP BY minute`
+- CTA funnel: multi-step aggregation with window functions
+- All queries are scoped by `tenant_id` (enforced at the query builder level)
+
+### Data retention
+- Raw events: 90 days in hot ClickHouse
+- Aggregated rollups: 2 years in a separate ClickHouse table
+- Export via REST API for compliance or customer data portability
+
+---
+
+## 13. Observability
+
+### Metrics (Prometheus, via Micrometer)
+- **RED** (Rate, Errors, Duration) on every HTTP endpoint
+- **USE** (Utilization, Saturation, Errors) on every resource (CPU, memory, DB pool, Kafka lag, Redis connections)
+- **Business metrics**: sessions started, active viewers, chat messages/sec, billing events/sec, new signups
+- All metrics tagged with `env`, `service`, `tenant_id` (top-N only)
+
+### Tracing (OpenTelemetry)
+- Every request gets a trace ID
+- Propagated via headers into Kafka, Redis, Centrifugo, downstream services
+- Sampled at 10% in production, 100% in staging, 100% on errors always
+
+### Logs (structured JSON)
+- **Every log line has**: `timestamp`, `level`, `service`, `trace_id`, `tenant_id`, `profile_id`, `session_id` (when applicable), `message`
+- No `System.out.println`. No `e.printStackTrace()`. Ever.
+- Use SLF4J with placeholders, not string concatenation: `log.info("User {} joined session {}", userId, sessionId)`
+- PII must not be logged at INFO level (emails, names) — use DEBUG and disable DEBUG in production
+
+### Alerts (Alertmanager)
+- P1: live session down, billing pipeline stuck, authentication broken → page on-call
+- P2: API p95 > 500ms, Kafka lag > 10k, DB connection saturation → Slack + email
+- P3: disk > 80%, certificate expiring in 30d → daily digest
+
+### Runbooks
+- Every alert links to a runbook in `docs/runbooks/`
+- Runbooks follow a template: Symptoms, Likely Causes, Diagnosis Steps, Mitigation, Escalation
+
+---
+
+## 14. Security (Non-Negotiable)
+
+1. **All traffic is HTTPS**. HSTS with `max-age=31536000; includeSubDomains; preload`.
+2. **JWTs are RS256**, never HS256 for user-facing tokens. Keys rotated every 90 days.
+3. **CSRF**: not applicable for pure API (JWT in Authorization header), but enabled for cookie-authenticated endpoints.
+4. **CORS**: explicit allow-list per environment. No `*` in production.
+5. **Rate limiting**: per IP + per user on authentication endpoints. Per tenant on API-wide level (fair usage).
+6. **Input validation**: every DTO annotated with Jakarta Validation. Rejected with 400 before reaching business logic.
+7. **SQL injection**: prevented by JPA parameter binding. No `String.format` in queries. Ever.
+8. **XSS**: chat messages are stored raw but rendered with DOMPurify on the client. HTML is never injected into the DOM from chat.
+9. **CSRF on webhooks**: HMAC signature verification on every webhook endpoint.
+10. **Secrets**: never in code, never in git, never in logs. Environment variables in dev, Vault in production.
+11. **Dependency scanning**: OWASP Dependency-Check in CI. PRs with vulnerable deps are blocked.
+12. **Container scanning**: Trivy on every image before push.
+13. **Audit log**: every admin action (moderation, tenant suspension, settings change) writes an audit row with actor, action, target, timestamp, IP.
+14. **PII encryption at rest**: PostgreSQL TDE or column-level encryption for email and phone.
+15. **Data in transit**: TLS 1.3 required; Redis, Kafka, PostgreSQL all require TLS in production.
+
+---
+
+## 15. Code Quality Standards
+
+### Java (backend)
+- **Formatting**: Google Java Format (enforced by Spotless in Maven)
+- **Linting**: Checkstyle + PMD + SpotBugs, all errors fail the build
+- **Imports**: no wildcards, no unused
+- **Null safety**: `@NonNull` and `@Nullable` annotations on every public method parameter and return type. Use `Optional<T>` for optional returns.
+- **Immutability**: prefer `record` for DTOs, `final` for fields and local variables when not reassigned
+- **Exception handling**: never catch `Exception` broadly. Catch specific types. Translate to domain exceptions at layer boundaries.
+- **Logging**: SLF4J, parameterized messages, appropriate levels (ERROR only for things humans need to act on)
+- **Comments**: explain *why*, not *what*. Self-documenting code first.
+- **Package structure**:
+  ```
+  com.webizon.{module}/
+    api/           ← controllers, request/response DTOs
+    domain/        ← entities, value objects, domain services
+    application/   ← use cases (application services)
+    infrastructure/← JPA repos, Kafka, Redis, external clients
+    config/        ← Spring config specific to the module
+  ```
+- **Dependency direction**: `api → application → domain`. `infrastructure` implements interfaces defined in `domain` or `application`.
+
+### TypeScript (frontend)
+- **Strict mode**: `strict: true`, `noUncheckedIndexedAccess: true`
+- **ESLint**: `@nuxt/eslint` preset, no `any` without justification
+- **Formatting**: Prettier
+- **No logic in templates**: computed properties or composables
+- **Composition API only**: no Options API
+- **Type definitions for API**: shared types generated from OpenAPI via `openapi-typescript`
+
+### Testing
+- **Unit tests**: JUnit 5 + Mockito. Focus on domain logic and use cases. Target: critical paths 90%+ coverage.
+- **Integration tests**: Testcontainers (real PostgreSQL, Redis, Kafka). Slower but honest.
+- **E2E tests**: Playwright against a running staging environment. Run on PRs touching frontend.
+- **Load tests**: k6 scripts in `tests/load/`. Must be run before any performance-impacting PR.
+- **No mocks for things we own**. Mock external services only.
+
+### CI pipeline
+```
+build → unit test → integration test → lint → security scan → build docker → push → deploy to staging → e2e → [manual approval] → deploy to prod
+```
+
+---
+
+## 16. Development Workflow
+
+### Branching
+- `main` — deployable at all times
+- Feature branches — short-lived, PR to `main`
+- `release/*` — for hotfix coordination if needed
+- **No direct pushes to `main`**. Enforced by GitLab protected branches.
+
+### Commits
+- Conventional Commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`
+- Small, atomic. Each commit should compile and pass tests.
+- Body explains *why*, not *what*.
+
+### Pull requests
+- Linked to an issue or ADR
+- Description explains the change, the reasoning, and the testing performed
+- Screenshots for UI changes
+- Reviewed by at least one other engineer before merge
+- Code review follows `code-review:code-review` skill
+
+### ADRs (Architecture Decision Records)
+- Any decision that affects more than one module or changes a rule in this document requires an ADR
+- Stored in `docs/adr/NNNN-title.md`
+- Template: Context, Decision, Consequences, Alternatives Considered
+- ADRs are **never edited**. If a decision is reversed, a new ADR supersedes the old one.
+
+---
+
+## 17. Forbidden Practices (Fail the PR)
+
+1. ❌ Queries without `tenant_id` filter on multi-tenant tables
+2. ❌ `SELECT *` in production code (always explicit columns)
+3. ❌ Storing secrets in environment files committed to git
+4. ❌ Catching `Exception` or `Throwable` without logging and rethrowing
+5. ❌ `new RestTemplate()` — use the configured `WebClient` or `RestClient` bean
+6. ❌ Logging PII at INFO level
+7. ❌ `println`, `printStackTrace`, `e.printStackTrace()`
+8. ❌ Raw SQL string interpolation (`"SELECT ... WHERE id = " + id`)
+9. ❌ Business logic in controllers
+10. ❌ N+1 queries (use `@EntityGraph`, `JOIN FETCH`, or projection DTOs)
+11. ❌ Unbounded collections in responses (always paginate)
+12. ❌ `@Transactional` on read endpoints without `readOnly = true`
+13. ❌ Blocking calls on hot paths without justification
+14. ❌ Frontend fetching directly from Centrifugo without going through our token endpoint
+15. ❌ Storing passwords or PANs (delegated to Keycloak and the payment provider respectively)
+16. ❌ Implementing new features without a test
+17. ❌ Merging on a red pipeline
+
+---
+
+## 18. Performance Budgets
+
+| Component | Budget | How measured |
+|-----------|--------|--------------|
+| REST API p95 | 200 ms | Prometheus histogram |
+| REST API p99 | 500 ms | Prometheus histogram |
+| Chat publish → receive | 250 ms end-to-end | Client-side timing |
+| Page load (Nuxt SSR, first byte) | 500 ms | Lighthouse CI |
+| Largest Contentful Paint | 2.0 s | Lighthouse CI |
+| DB query p95 | 50 ms | `pg_stat_statements` |
+| Redis op p95 | 5 ms | Lettuce metrics |
+| Kafka publish p95 | 20 ms | Producer metrics |
+| ClickHouse dashboard query p95 | 1.0 s | Query log |
+
+**If a PR regresses any of these by more than 10%, it is blocked until explained and justified.**
+
+---
+
+## 19. Local Development
+
+### Prerequisites
+- Docker Desktop (or equivalent)
+- JDK 21 (Temurin recommended)
+- Maven 3.9+
+- Node.js 20 LTS
+- Make (for `make` targets)
+
+### One-command startup
+```bash
+make dev-up
+```
+
+This spins up:
+- PostgreSQL (seeded with dev data)
+- Redis
+- Kafka + Zookeeper
+- Centrifugo
+- MinIO (S3 stand-in)
+- Keycloak (with dev realm auto-imported)
+- The API (with live reload)
+- The frontend (Nuxt dev server)
+
+### Conventions
+- All services run in Docker Compose via `docker-compose.yml` at repo root
+- Dev data is seeded via Flyway migrations with `profile = dev`
+- Environment variables live in `.env` (committed as `.env.example`, ignored as `.env`)
+
+---
+
+## 20. Documentation Discipline
+
+- This **CLAUDE.md** is the engineering constitution. Update it when a rule changes.
+- **README.md** at repo root is the quickstart for new engineers.
+- **docs/adr/** holds every architecture decision.
+- **docs/runbooks/** holds one file per alert, one per known incident pattern.
+- **docs/specs/** holds feature specs (brainstorming skill output goes here).
+- **OpenAPI spec** is generated from the code, not written by hand.
+- **Internal wiki** is banned. If it's worth writing down, it goes in the repo.
+
+---
+
+## 21. North Star Questions (Every Design Must Answer)
+
+Before merging any non-trivial change, the author must be able to answer:
+
+1. Does this work correctly when there are **60,000 viewers in one session**?
+2. Does this work correctly when there are **100 tenants running sessions simultaneously**?
+3. What happens when **Kafka is down for 10 minutes**?
+4. What happens when **Redis is down for 10 seconds**?
+5. What happens when **PostgreSQL is degraded** (slow, not dead)?
+6. What happens when **Centrifugo cluster loses one node**?
+7. Can a **malicious tenant** degrade another tenant's experience?
+8. Is this change **observable** (metrics, logs, traces)?
+9. Is this change **reversible** (feature flag, blue-green, rollback plan)?
+10. Does this change respect the **billing invariants** (idempotency, append-only, reconciliation)?
+
+If the answer to any of these is "I don't know", the design is not done.
+
+---
+
+## 22. Immediate Build Direction
+
+The first working milestone (**MVP**, defined in `docs/PLAN.md`) targets:
+- Multi-tenant signup + login
+- Event creation (admin)
+- LIVE session with YouTube embed + custom chat via Centrifugo
+- Basic CTA
+- Basic analytics (attendance + retention chart)
+- Trial billing (no real payments yet)
+- Deploy to staging environment
+
+Everything else is deferred until MVP is provably stable under load testing.
+
+---
+
+**This document is law. If you disagree with a rule, write an ADR. Do not silently violate it.**

@@ -1,0 +1,175 @@
+spring:
+  application:
+    name: webizon-api
+
+  threads:
+    virtual:
+      enabled: true
+
+  main:
+    banner-mode: off
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/webizon}
+    username: ${SPRING_DATASOURCE_USERNAME:webizon}
+    password: ${SPRING_DATASOURCE_PASSWORD:webizon}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 10000
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      pool-name: WebizonHikariPool
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 50
+          order_inserts: true
+          order_updates: true
+        query:
+          in_clause_parameter_padding: true
+          plan_cache_max_size: 2048
+        format_sql: false
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: 5000
+      lettuce:
+        pool:
+          max-active: 64
+          max-idle: 32
+          min-idle: 8
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 5
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        linger.ms: 5
+        compression.type: snappy
+    consumer:
+      group-id: webizon-api
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        spring.json.trusted.packages: "com.webizon.*"
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:http://localhost:8180/realms/webizon}
+          jwk-set-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI:http://localhost:8180/realms/webizon/protocol/openid-connect/certs}
+
+server:
+  port: 8080
+  compression:
+    enabled: true
+    min-response-size: 1024
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+  tomcat:
+    threads:
+      max: 400
+    max-connections: 10000
+    accept-count: 1000
+
+# ============================================================================
+# WEBIZON-SPECIFIC CONFIG
+# ============================================================================
+webizon:
+  centrifugo:
+    url: ${WEBIZON_CENTRIFUGO_URL:http://localhost:8000}
+    api-key: ${WEBIZON_CENTRIFUGO_API_KEY:dev_api_key_change_me}
+    token-hmac-secret: ${WEBIZON_CENTRIFUGO_TOKEN_HMAC_SECRET:dev_hmac_secret_change_me}
+    token-ttl-seconds: 900
+
+  clickhouse:
+    url: ${WEBIZON_CLICKHOUSE_URL:jdbc:clickhouse://localhost:8123/webizon_analytics}
+    username: ${WEBIZON_CLICKHOUSE_USER:default}
+    password: ${WEBIZON_CLICKHOUSE_PASSWORD:}
+
+  minio:
+    endpoint: ${WEBIZON_MINIO_ENDPOINT:http://localhost:9000}
+    public-endpoint: ${WEBIZON_MINIO_PUBLIC_ENDPOINT:http://localhost:9002}
+    access-key: ${WEBIZON_MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${WEBIZON_MINIO_SECRET_KEY:minioadmin}
+    buckets:
+      covers: webizon-covers
+      cta-files: webizon-cta-files
+      recordings: webizon-recordings
+      invoices: webizon-invoices
+
+  cors:
+    allowed-origins: ${WEBIZON_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
+  moderation:
+    flood:
+      max-messages: 5
+      window-seconds: 10
+
+  billing:
+    rates:
+      seat-live: 15
+      seat-auto: 10
+      storage-gb-month: 200
+      payment-processing-percent: 3
+    vat-percent: 12
+
+# ============================================================================
+# MANAGEMENT / ACTUATOR
+# ============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: webizon-api
+      environment: ${SPRING_PROFILES_ACTIVE:local}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.75, 0.95, 0.99
+      sla:
+        http.server.requests: 50ms, 100ms, 200ms, 500ms, 1s
+
+logging:
+  level:
+    root: INFO
+    com.webizon: DEBUG
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{trace_id:-},%X{tenant_id:-}] %logger{36} - %msg%n"
