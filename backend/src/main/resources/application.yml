@@ -169,6 +169,16 @@ webizon:
       initial-delay: 15s
       batch-size: 100
       stale-sending-timeout: 5m
+    # Session reminder sweeper — fans out EVENT_REMINDER
+    # notifications for registered viewers N minutes before a
+    # scheduled session's startTime. Lead-time is how far ahead
+    # of the session the reminder fires; tick-interval is the
+    # sweeper cadence (60s is plenty — the reminder window is
+    # measured in minutes, not seconds).
+    session-reminder:
+      lead-time: 30m
+      tick-interval: 60s
+      initial-delay: 30s
 
 # ============================================================================
 # MANAGEMENT / ACTUATOR

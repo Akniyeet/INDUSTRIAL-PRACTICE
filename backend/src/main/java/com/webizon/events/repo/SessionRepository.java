@@ -111,4 +111,29 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
            order by s.finalizedAt asc
            """)
     List<Session> findUnmeteredFinalizedSessions();
+
+    /**
+     * Upcoming sessions (LIVE {@code SCHEDULED} or AUTO
+     * {@code AUTO_SCHEDULED}) whose {@code startTime} falls inside
+     * the half-open window {@code (now, windowEnd]}. Powers the
+     * session reminder scheduler's per-tick fan-out: every tick
+     * picks up sessions that have just entered the reminder lead
+     * time but are not yet airing, and enqueues EVENT_REMINDER
+     * notifications for every active registration.
+     *
+     * <p>Ordered by {@code startTime} ascending so the sooner-to-
+     * start session's reminders fire first — under a big backlog
+     * the scheduler drains in start-time order which is the
+     * user-visible correct behaviour.
+     */
+    @Query("""
+           select s from Session s
+           where s.status in (com.webizon.events.model.SessionStatus.SCHEDULED,
+                              com.webizon.events.model.SessionStatus.AUTO_SCHEDULED)
+             and s.startTime > :now
+             and s.startTime <= :windowEnd
+           order by s.startTime asc
+           """)
+    List<Session> findUpcomingWithinWindow(@Param("now") Instant now,
+                                           @Param("windowEnd") Instant windowEnd);
 }
