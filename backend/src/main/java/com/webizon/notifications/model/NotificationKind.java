@@ -28,7 +28,16 @@ public enum NotificationKind {
     SESSION_STARTING(2),
 
     /** A new user accepted a tenant invite. */
-    WELCOME(5);
+    WELCOME(5),
+
+    /**
+     * A tenant admin created an invite for a future staff member. The
+     * recipient receives a one-time bearer link that drops them into the
+     * accept flow. Retries are moderate — if the mail does not land
+     * after a handful of attempts the admin can always re-issue the
+     * invite manually, so we do not burn retries chasing it for days.
+     */
+    TENANT_INVITE(4);
 
     private final int defaultMaxAttempts;
 

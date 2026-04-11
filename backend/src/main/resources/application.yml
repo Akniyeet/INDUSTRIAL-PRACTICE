@@ -140,6 +140,23 @@ webizon:
   cors:
     allowed-origins: ${WEBIZON_CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
+  # Public base URL of the frontend. Used to render invite accept links
+  # in TENANT_INVITE emails (and any future transactional mail that
+  # needs to deep-link into the app). Must NOT have a trailing slash.
+  frontend:
+    base-url: ${WEBIZON_FRONTEND_BASE_URL:http://localhost:3000}
+
+  # Tenant invite lifecycle tuning.
+  invites:
+    # How long an invite link stays valid before the accept endpoint
+    # returns 410 Gone. 7 days is the right default — long enough to
+    # survive a weekend / holiday, short enough that a leaked link
+    # from an archived email cannot be replayed a month later.
+    ttl: 7d
+    # Byte length of the random bearer token generated per invite.
+    # 32 bytes = 256 bits of entropy → base64url-encoded to 43 chars.
+    token-bytes: 32
+
   moderation:
     flood:
       max-messages: 5
