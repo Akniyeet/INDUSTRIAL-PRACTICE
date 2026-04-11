@@ -5,7 +5,7 @@
  * <p>The hub every other admin flow lands on. Four tabs today:
  * <ol>
  *   <li>Шолу — summary card with all event metadata + danger zone</li>
- *   <li>Сессиялар — placeholder until F3 lands the session manager</li>
+ *   <li>Сессиялар — {@link SessionsPanel} with full CRUD + lifecycle verbs</li>
  *   <li>CTA — placeholder until the CTA editor ships</li>
  *   <li>Чат — placeholder until chat settings editor ships</li>
  * </ol>
@@ -346,14 +346,8 @@ function formatDate(iso: string | null) {
         </div>
       </div>
 
-      <!-- Tab: Sessions (placeholder) -->
-      <UiEmpty
-        v-else-if="activeTab === 'sessions'"
-        title="Сессиялар әлі қосылмаған"
-        description="Сессия менеджері келесі итерацияда қосылады. Ол жерде live және auto сессияларды жоспарлау, эфирді бастау және аяқтау мүмкіндіктері болады."
-      >
-        <template #icon><Radio class="h-5 w-5" /></template>
-      </UiEmpty>
+      <!-- Tab: Sessions -->
+      <SessionsPanel v-else-if="activeTab === 'sessions'" :event-id="event.id" />
 
       <!-- Tab: CTA (placeholder) -->
       <UiEmpty
