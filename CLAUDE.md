@@ -92,7 +92,7 @@ These choices are final. Changing any of them requires an ADR approved before wo
 
 ### Backend API (Business logic)
 - **Language**: Java 21 (LTS)
-- **Framework**: Spring Boot 3.2+ with **virtual threads enabled** (Project Loom)
+- **Framework**: Spring Boot **3.5.3** with **virtual threads enabled** (Project Loom). Stay on the latest 3.x patch — do not jump to 4.x until the whole module ecosystem (Spring Cloud, Spring Security, springdoc) is on 7.x compatible releases.
 - **Build**: Maven (not Gradle — simpler for CI, better IDE tooling in our team)
 - **HTTP**: Spring MVC (not WebFlux — virtual threads give us non-blocking benefits with blocking-style code)
 - **Validation**: Jakarta Validation (`@Valid`)

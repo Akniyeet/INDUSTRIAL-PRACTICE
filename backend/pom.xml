@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
+        <version>3.5.3</version>
         <relativePath/>
     </parent>
 
@@ -23,13 +23,13 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <springdoc.version>2.5.0</springdoc.version>
-        <testcontainers.version>1.19.8</testcontainers.version>
-        <mapstruct.version>1.5.5.Final</mapstruct.version>
-        <lombok.version>1.18.32</lombok.version>
-        <minio.version>8.5.10</minio.version>
-        <clickhouse.version>0.6.0</clickhouse.version>
-        <jjwt.version>0.12.5</jjwt.version>
+        <springdoc.version>2.7.0</springdoc.version>
+        <testcontainers.version>1.20.4</testcontainers.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+        <lombok.version>1.18.36</lombok.version>
+        <minio.version>8.5.14</minio.version>
+        <clickhouse.version>0.6.5</clickhouse.version>
+        <jjwt.version>0.12.6</jjwt.version>
     </properties>
 
     <dependencies>
@@ -84,9 +84,15 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
         </dependency>
-        <!-- Flyway 9.x (managed by Spring Boot 3.2) has PostgreSQL support built into
-             flyway-core; the separate flyway-database-postgresql artifact only exists
-             from Flyway 10+. -->
+        <!-- From Flyway 10 (which Spring Boot 3.4+ pins) PostgreSQL support is no
+             longer baked into flyway-core — it ships as a separate
+             flyway-database-postgresql artifact. Without this dependency the
+             application boots fine in tests but fails on the first migration with
+             "Unsupported Database: PostgreSQL X.Y". -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
 
 
         <!-- Redis -->
