@@ -62,7 +62,6 @@ const classes = computed(() => [
 ])
 
 const effectiveDisabled = computed(() => props.disabled || props.loading)
-const element = computed<'button' | 'a'>(() => (props.to || props.href ? 'a' : 'button'))
 </script>
 
 <template>
