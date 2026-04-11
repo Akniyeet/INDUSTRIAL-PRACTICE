@@ -104,7 +104,9 @@ webizon:
   centrifugo:
     url: ${WEBIZON_CENTRIFUGO_URL:http://localhost:8000}
     api-key: ${WEBIZON_CENTRIFUGO_API_KEY:dev_api_key_change_me}
-    token-hmac-secret: ${WEBIZON_CENTRIFUGO_TOKEN_HMAC_SECRET:dev_hmac_secret_change_me}
+    # HS256 requires ≥ 32 bytes. Dev default is long enough to pass the
+    # runtime check in CentrifugoTokenSigner; prod MUST override via env.
+    token-hmac-secret: ${WEBIZON_CENTRIFUGO_TOKEN_HMAC_SECRET:dev_hmac_secret_change_me_change_me_change_me_change_me}
     token-ttl-seconds: 900
 
   clickhouse:

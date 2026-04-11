@@ -71,6 +71,30 @@ public final class CurrentUser {
         return name;
     }
 
+    /**
+     * Webizon profile id ({@code profile_id} claim). This is the
+     * canonical user identity inside the app — all chat, analytics,
+     * CRM, and moderation rows point at this UUID, never at the
+     * Keycloak subject.
+     */
+    public static UUID profileId() {
+        String raw = jwt().getClaimAsString("profile_id");
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalStateException("JWT has no profile_id claim");
+        }
+        try {
+            return UUID.fromString(raw);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException("JWT profile_id is not a valid UUID: " + raw, ex);
+        }
+    }
+
+    /** Single-role shortcut claim minted by our token customizer. */
+    public static String role() {
+        String raw = jwt().getClaimAsString("role");
+        return raw == null ? "" : raw;
+    }
+
     public static Optional<UUID> tenantId() {
         String raw = jwt().getClaimAsString("tenant_id");
         if (raw == null || raw.isBlank()) return Optional.empty();

@@ -1,56 +1,57 @@
 package com.webizon.realtime;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Thin HTTP client for Centrifugo's server API.
  *
- * <p>Publishes are fire-and-forget from the caller's perspective; failures are
- * logged and enqueued to a retry topic by {@code CentrifugoRetryPublisher}
- * (added in Phase 3).
+ * <p>Publishes are fire-and-forget from the caller's perspective: on failure
+ * we log and return {@code false}. Callers on hot paths (chat, CTA sync)
+ * MUST NOT block on the boolean return — they should hand the message off
+ * to a retry buffer (Phase 4 work: {@code CentrifugoRetryPublisher}) and
+ * let the websocket fall back to next reconnect.
  *
- * <p><strong>Do not construct raw channel names here.</strong> Callers must pass
- * channel names built by {@link ChannelNameFactory}.
+ * <p><strong>Do not construct raw channel names in callers.</strong> Channels
+ * must come from {@link ChannelNameFactory} so that parsing and access
+ * control stay consistent with publish.
+ *
+ * <p>Timeouts are deliberately short (2s connect, 5s read): Centrifugo runs
+ * next to the backend and a slow response almost always means it is
+ * overloaded — we would rather shed load than queue.
  */
 @Component
 @Slf4j
 public class CentrifugoClient {
 
     private final RestClient restClient;
-    private final ObjectMapper objectMapper;
-    private final String apiKey;
 
-    public CentrifugoClient(
-            @Value("${webizon.centrifugo.url}") String centrifugoUrl,
-            @Value("${webizon.centrifugo.api-key}") String apiKey,
-            ObjectMapper objectMapper) {
-        this.apiKey = apiKey;
-        this.objectMapper = objectMapper;
+    public CentrifugoClient(CentrifugoProperties properties) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout((int) Duration.ofSeconds(2).toMillis());
+        requestFactory.setReadTimeout((int) Duration.ofSeconds(5).toMillis());
+
         this.restClient = RestClient.builder()
-                .baseUrl(centrifugoUrl)
+                .baseUrl(properties.url())
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .defaultHeader("X-API-Key", apiKey)
-                .requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {
-                    {
-                        setConnectTimeout((int) Duration.ofSeconds(2).toMillis());
-                        setReadTimeout((int) Duration.ofSeconds(5).toMillis());
-                    }
-                })
+                .defaultHeader("X-API-Key", properties.apiKey())
+                .requestFactory(requestFactory)
                 .build();
     }
 
     /**
-     * Publish a message to a channel. Returns true on success.
-     * Failures are logged; callers should not block on the return value in hot paths.
+     * Publish a single message to one channel.
+     *
+     * @return {@code true} on 2xx, {@code false} on any error (logged)
      */
     public boolean publish(String channel, Object payload) {
         try {
@@ -64,17 +65,22 @@ public class CentrifugoClient {
                     .retrieve()
                     .toBodilessEntity();
             return response.getStatusCode().is2xxSuccessful();
-        } catch (Exception ex) {
+        } catch (RestClientException ex) {
             log.error("Failed to publish to Centrifugo channel '{}': {}", channel, ex.getMessage());
             return false;
         }
     }
 
     /**
-     * Broadcast the same payload to multiple channels in one API call.
-     * Useful for fan-out across tenant-scoped channels.
+     * Broadcast the same payload to multiple channels in a single API call.
+     *
+     * <p>Useful when a server-side event (e.g. session state change) must
+     * hit several channel kinds at once — STATE + CONTROL for instance.
      */
-    public boolean broadcast(java.util.List<String> channels, Object payload) {
+    public boolean broadcast(List<String> channels, Object payload) {
+        if (channels == null || channels.isEmpty()) {
+            return true;
+        }
         try {
             var body = Map.of(
                     "channels", channels,
@@ -86,7 +92,7 @@ public class CentrifugoClient {
                     .retrieve()
                     .toBodilessEntity();
             return response.getStatusCode().is2xxSuccessful();
-        } catch (Exception ex) {
+        } catch (RestClientException ex) {
             log.error("Failed to broadcast to Centrifugo channels {}: {}", channels, ex.getMessage());
             return false;
         }
