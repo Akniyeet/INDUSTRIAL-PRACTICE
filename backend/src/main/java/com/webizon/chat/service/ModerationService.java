@@ -1,5 +1,6 @@
 package com.webizon.chat.service;
 
+import com.webizon.chat.event.ModerationAppliedEvent;
 import com.webizon.chat.model.ChatMessage;
 import com.webizon.chat.model.ChatUserStatus;
 import com.webizon.chat.model.ModerationAction;
@@ -14,6 +15,7 @@ import com.webizon.realtime.ChannelKind;
 import com.webizon.realtime.ChannelNameFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +54,7 @@ public class ModerationService {
     private final ModerationActionRepository moderationActionRepository;
     private final CentrifugoClient centrifugoClient;
     private final ChannelNameFactory channelNameFactory;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     // ------------------------------------------------------------------
     // User-targeted actions
@@ -210,7 +213,23 @@ public class ModerationService {
         action.setTargetMessageId(targetMessageId);
         action.setReason(reason);
         action.setDurationSeconds(durationSeconds);
-        return moderationActionRepository.save(action);
+        ModerationAction saved = moderationActionRepository.save(action);
+
+        // Fan out to the analytics pipeline. The listener resolves
+        // the correct behavioural event type (WARNING_RECEIVED,
+        // MUTED, etc.) and feeds it into the negative-signal lane of
+        // the lead evaluator.
+        applicationEventPublisher.publishEvent(new ModerationAppliedEvent(
+                session.getTenantId(),
+                session.getEventId(),
+                session.getId(),
+                targetUserId,
+                moderatorId,
+                type,
+                targetMessageId
+        ));
+
+        return saved;
     }
 
     private void broadcastControl(Session session, ModerationAction action, Map<String, Object> extras) {

@@ -1,5 +1,6 @@
 package com.webizon.chat.service;
 
+import com.webizon.chat.event.ChatMessageSentEvent;
 import com.webizon.chat.model.ChatMessage;
 import com.webizon.chat.model.ChatUserStatus;
 import com.webizon.chat.model.EventChatSettings;
@@ -16,6 +17,7 @@ import com.webizon.realtime.ChannelKind;
 import com.webizon.realtime.ChannelNameFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,6 +84,7 @@ public class ChatService {
     private final List<ChatPolicy> policies;
     private final CentrifugoClient centrifugoClient;
     private final ChannelNameFactory channelNameFactory;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
     public ChatMessage sendMessage(SendMessageCommand cmd) {
@@ -129,6 +132,23 @@ public class ChatService {
         upsertUserStatusAfterSend(status, session, cmd.userId(), now);
 
         publishToChannel(session, saved);
+
+        // Downstream decoupling: analytics listens for this event and
+        // records it as a behavioural row without chat having to know
+        // the analytics module exists. Only real user traffic counts
+        // towards engagement signals — admin-authored messages are
+        // moderation activity, tracked separately.
+        if (!isModerator) {
+            applicationEventPublisher.publishEvent(new ChatMessageSentEvent(
+                    session.getTenantId(),
+                    session.getEventId(),
+                    session.getId(),
+                    cmd.userId(),
+                    saved.getId(),
+                    replyTo != null,
+                    saved.getOffsetSeconds()
+            ));
+        }
 
         return saved;
     }
