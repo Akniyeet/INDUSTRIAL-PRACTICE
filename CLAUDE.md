@@ -125,21 +125,34 @@ These choices are final. Changing any of them requires an ADR approved before wo
 - **Never queried in the hot path** (no synchronous user-facing queries)
 
 ### Caching & Ephemeral State
-- **Redis 7 (Cluster mode)** for:
-  - Rate limiting (flood protection, slow mode)
+- **Redis 7** — start as **single master + one read replica** (`redis-sentinel` for failover). Used for:
+  - Rate limiting (flood protection, slow mode token buckets)
   - Session state cache
-  - Centrifugo pub/sub engine
+  - Centrifugo pub/sub engine (its own dedicated Redis instance, separate from app cache)
   - Distributed locks (Redlock where needed)
   - Ephemeral presence counters
+- **Cluster mode is NOT the default.** Sharding adds real cost: cross-slot `MULTI` is impossible, Lua scripts can't span slots, the Lettuce client needs cluster awareness, and slot rebalancing during a hot session is operational pain. Stay on a single primary until **measured** load (not guesswork) shows memory > 70 % on an 8 GB instance OR CPU > 60 % at peak. Then introduce Cluster — and only for the cache that hits the wall, not all of them at once.
+- **Centrifugo's Redis is always separate** from the app cache, regardless of Cluster decision. Mixing pub/sub traffic with key-value workload starves both.
 
 ### Message Broker
-- **Apache Kafka** (3 brokers min in production) for:
-  - Chat message persistence pipeline
-  - Analytics event pipeline
-  - Billing event pipeline
-  - Integration events (tenant provisioned, session started, etc.)
-  - Lead signal generation
-  - Dead-letter queues for all of the above
+- **Apache Kafka** (3 brokers min in production). Kafka is **not** a default transport — it earns its place only when one of these is true: (a) the consumer is in a different service, (b) durability + replay is required, (c) write throughput must be decoupled from read consumers, (d) fan-out to N independent subscribers is needed.
+
+**Use case matrix — what Kafka is for, and what it is NOT for:**
+
+| Pipeline | Kafka? | Why |
+|---|---|---|
+| Analytics events → ClickHouse | ✅ yes | Decouple write firehose from CH batches; CH consumer runs separately |
+| Lead signals → CRM | ✅ yes | CRM is a different service; needs replay for outage recovery |
+| Billing events → invoice / dunning | ✅ yes | Durability required for financial correctness; multiple consumers |
+| Integration events (tenant provisioned, session started) → external webhooks | ✅ yes | Multiple subscribers, replay on consumer failure |
+| Dead-letter queue for the above | ✅ yes | Compaction-free retention for forensics |
+| **Chat message persistence → Postgres** | ❌ NO | App writes directly to Postgres (batched). Kafka adds latency, ordering complexity, and a moving part for zero benefit. If analytics need chat events, emit a separate Kafka record AFTER the Postgres write succeeds |
+| Moderation actions → audit log | ❌ NO | Direct Postgres insert. Audit must be transactionally consistent with the action |
+| Email notifications | ❌ NO | Use a transactional outbox table + worker. Kafka is overkill |
+| Cache invalidation | ❌ NO | Use Redis pub/sub or in-process events |
+| Per-request RPC between services | ❌ NO | Use OpenFeign / HTTP. Kafka is async-only |
+
+**The rule**: if you find yourself reaching for Kafka because "it's an event", stop and ask which of (a)–(d) actually applies. If none, pick a simpler tool.
 
 ### Object Storage
 - **S3-compatible** (AWS S3 in production, MinIO in dev/local)
@@ -357,19 +370,70 @@ The chat is the most load-sensitive component. Every design decision here priori
 ### Write path
 1. Client sends `POST /api/v1/sessions/{id}/chat` with the message payload
 2. API authenticates, loads TenantContext, runs policy chain:
-   - User is not banned/muted
+   - User is not banned (tenant-level OR session-level)
+   - User is not muted (`chat_user_status.mute_until > now()`)
    - Chat is enabled for this session
-   - Slow mode check (Redis Lua)
-   - Flood protection check (Redis Lua)
-   - Forbidden word filter
-   - Link policy
-3. API publishes to Kafka topic `webizon.chat.messages` (partitioned by `session_id`)
-4. API publishes to Centrifugo channel `tenant.{tid}.session.{sid}.chat`
-5. API returns `202 Accepted` with a `messageId`
-6. A `ChatPersistenceConsumer` reads the Kafka topic in batches (up to 500 messages) and bulk-inserts into PostgreSQL
-7. A `BillingEventConsumer` reads the same topic and updates UsageMeter (no-op — chat isn't billed, but the path is shared)
+   - Slow mode check (Redis Lua token bucket per `(session_id, user_id)`)
+   - Flood protection check (Redis Lua sliding window)
+   - Forbidden word filter (per-tenant rule set)
+   - Link policy (per-tenant deny list)
+3. **Fan-out first**: API publishes to Centrifugo channel `tenant.{tid}.session.{sid}.chat` — clients see the message in < 100 ms
+4. **Persist second**: the message is appended to the in-process `ChatWriteBuffer` (per session_id), which flushes on either of two triggers:
+   - 100 messages reached for any single session, OR
+   - 50 ms wall clock since the oldest message in the buffer
+   The flush is a single multi-row `INSERT INTO chat_messages VALUES (...), (...), (...)` against the partitioned table — see "Storage pattern" below.
+5. API returns `202 Accepted` with the server-assigned `messageId` from the buffer (the buffer hands out monotonic ids before the flush so the client can correlate).
 
-**Why publish to Centrifugo before persistence is confirmed?** Because users need to see messages instantly. Persistence failures are handled via DLQ and alerting — we accept **eventual durability** in exchange for sub-250ms delivery. If a message is lost due to Kafka failure, it's reported via monitoring and the user may resend.
+**Why fan-out before persistence?** Because users need to see messages instantly and the Postgres write — even batched — is the slowest step. Persistence failures fall through to a DLQ table (`chat_write_failures`) and an alert. We accept a ~50 ms eventual-durability window in exchange for sub-100 ms perceived delivery.
+
+**Why NOT route through Kafka here?** Because chat persistence needs to be transactionally close to the moderation/audit write path, and Kafka adds: an extra hop, ordering risk across partitions, a consumer to operate, a DLQ to drain. None of (a) cross-service decoupling, (b) replay, (c) write/read decoupling, or (d) fan-out apply — Centrifugo already does fan-out. See the §4 Kafka use case matrix.
+
+### Storage pattern (CRITICAL — do not deviate)
+
+Hot session math: 10 000 viewers × ~5 messages/min/active-user × ~10 % active = ~5 000 messages/min per session, with bursts to ~500 messages/sec at peak engagement. Across 60 concurrent sessions in production peak: ~30 000 messages/sec system-wide. A naive `INSERT` per message is the bottleneck — both for latency and for index/lock contention.
+
+**Five rules govern the chat write path:**
+
+1. **Hash-partition `chat_messages` by `session_id`** (32 partitions). Each session's writes hit a single child table, so two hot sessions never contend on the same B-tree page. Partitions can be `DETACH`-ed cheaply for retention (see rule 5).
+2. **Composite primary key `(session_id, id)`** — the `id` is per-session monotonic, generated by the application's `ChatWriteBuffer`. This avoids a global `BIGSERIAL` hot spot and lets the partition pruner skip 31/32 children on any query.
+3. **Append-only — never UPDATE the row.** Moderation deletions, edits, and hides are recorded as separate rows in `chat_message_moderation` keyed by `(session_id, message_id, action_type)`. Read queries `LEFT JOIN moderation_state(session_id, message_id)` to compute the visible state. Result: **zero dead tuples** on `chat_messages`, no autovacuum pressure on the hot table.
+4. **Batched multi-row INSERT** via the in-process `ChatWriteBuffer` (50 ms / 100 message flush window — see the write path above). Use Postgres `COPY` with `pgcopy` only if profiling shows extended-query INSERT is the bottleneck — the simpler path comes first.
+5. **Retention by partition swap.** A nightly job marks any partition whose newest row is > 90 days old, exports it to S3 as compressed JSONL, then `DETACH PARTITION` + `DROP TABLE`. Constant time, no `DELETE` storms.
+
+**What the schema looks like** (illustrative — actual DDL lives in the Flyway migration):
+
+```sql
+CREATE TABLE chat_messages (
+    id          BIGINT       NOT NULL,                  -- per-session monotonic
+    session_id  UUID         NOT NULL,
+    tenant_id   UUID         NOT NULL,
+    user_id     UUID         NOT NULL,
+    text        TEXT         NOT NULL,
+    reply_to_id BIGINT,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    PRIMARY KEY (session_id, id)
+) PARTITION BY HASH (session_id);
+
+-- 32 children: chat_messages_p00 ... chat_messages_p31
+
+CREATE TABLE chat_message_moderation (
+    session_id   UUID         NOT NULL,
+    message_id   BIGINT       NOT NULL,
+    action_type  TEXT         NOT NULL  -- 'DELETE' | 'HIDE' | 'PIN'
+        CHECK (action_type IN ('DELETE','HIDE','PIN')),
+    actor_id     UUID         NOT NULL,
+    reason       TEXT,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    PRIMARY KEY (session_id, message_id, action_type)
+);
+```
+
+**Indexes on `chat_messages`** are intentionally minimal: only the PK. Scrollback queries are always `WHERE session_id = ? AND id < ? ORDER BY id DESC LIMIT 50`, which the PK already serves perfectly. Adding `(tenant_id, created_at)` would be tempting for cross-session reports, but those run against ClickHouse, not Postgres.
+
+### Live vs. replay reads
+- **Live tail**: clients read from Centrifugo channel history (~last 100 messages, in-memory). Postgres is **never** queried for the live tail.
+- **Scrollback**: `GET /api/v1/sessions/{id}/chat?before={messageId}` runs the PK query above. The `LEFT JOIN chat_message_moderation` filters deleted/hidden messages.
+- **Auto-session replay**: the source LIVE session's messages are loaded once at session start and pushed through Centrifugo at their original offsets — no per-message DB read during playback.
 
 ### Rate limiting
 - **Slow mode**: configurable per session (0, 5, 10, 20, 30, 60 seconds). Enforced via Redis Lua `INCR` + `EXPIRE`.
@@ -849,6 +913,167 @@ Every `Ui*` component follows the same contract:
 
 ### Commit message shape (frontend slices)
 Frontend slices are committed as `feat(frontend): <slice summary>` with a short body listing the pages/components added. F1 and F2 are reference examples in the git log.
+
+---
+
+## 24. Moderation, Bans & Throttling Data Model
+
+Moderation is not a polish feature — it is the difference between a usable live room and a hostile one. The data model and the throttling layers are pinned here so that F5 and F6 cannot drift.
+
+### Tables (all tenant-scoped, all in PostgreSQL)
+
+**`moderation_events`** — append-only audit log. Every action by a moderator OR by the auto-moderator lands here. Never `UPDATE`, never `DELETE` (retained 2 years for legal review).
+
+```sql
+CREATE TABLE moderation_events (
+    id            BIGSERIAL PRIMARY KEY,
+    tenant_id     UUID         NOT NULL,
+    event_id      UUID         NOT NULL,
+    session_id    UUID,                              -- nullable for tenant-wide actions
+    actor_id      UUID         NOT NULL,             -- moderator profile id (or system uuid)
+    actor_kind    TEXT         NOT NULL              -- 'HUMAN' | 'SYSTEM' | 'AUTO_RULE'
+        CHECK (actor_kind IN ('HUMAN','SYSTEM','AUTO_RULE')),
+    target_user_id     UUID,                         -- nullable for non-user actions (slow mode)
+    target_message_id  BIGINT,                       -- nullable
+    action_type   TEXT         NOT NULL              -- see enum below
+        CHECK (action_type IN (
+            'WARN','MUTE','UNMUTE','CHAT_BAN','UNCHAT_BAN',
+            'ROOM_REMOVE','TENANT_BAN','UNTENANT_BAN',
+            'MESSAGE_DELETE','MESSAGE_HIDE','MESSAGE_PIN',
+            'SLOW_MODE_CHANGE','CHAT_DISABLED','CHAT_ENABLED',
+            'WORD_RULE_HIT','LINK_RULE_HIT'
+        )),
+    reason            TEXT,
+    duration_seconds  INTEGER,                       -- mute/ban duration; null = permanent
+    payload_json      JSONB,                         -- action-specific extras
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX moderation_events_tenant_recent
+    ON moderation_events (tenant_id, created_at DESC);
+CREATE INDEX moderation_events_target
+    ON moderation_events (target_user_id, created_at DESC)
+    WHERE target_user_id IS NOT NULL;
+```
+
+**`chat_user_status`** — current effective state for a user in a session. This is a fast lookup table that the chat policy chain reads on every message ingress. Updated by the moderation pipeline atomically with the corresponding `moderation_events` row (in the same transaction).
+
+```sql
+CREATE TABLE chat_user_status (
+    tenant_id      UUID         NOT NULL,
+    session_id     UUID         NOT NULL,
+    user_id        UUID         NOT NULL,
+    is_muted       BOOLEAN      NOT NULL DEFAULT false,
+    mute_until     TIMESTAMPTZ,
+    is_chat_banned BOOLEAN      NOT NULL DEFAULT false,
+    is_room_banned BOOLEAN      NOT NULL DEFAULT false,
+    warning_count  INTEGER      NOT NULL DEFAULT 0,
+    last_message_at TIMESTAMPTZ,
+    updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    PRIMARY KEY (session_id, user_id)
+);
+```
+
+This table is also mirrored into Redis as `chat:status:{session_id}:{user_id}` with a 1-hour TTL so the policy chain doesn't hit Postgres on every message. Cache invalidation happens via Centrifugo personal channel: when a user is muted, the moderation pipeline publishes a `ChatStatusChanged` event the user's client receives AND the local Redis cache is `DEL`-ed.
+
+**`tenant_bans`** — bans that follow a user across **every** event in the tenant. Loaded once on Centrifugo connect; reject the connect entirely if banned.
+
+```sql
+CREATE TABLE tenant_bans (
+    tenant_id   UUID         NOT NULL,
+    user_id     UUID         NOT NULL,
+    reason      TEXT,
+    banned_by   UUID         NOT NULL,
+    banned_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ,                         -- null = permanent
+    PRIMARY KEY (tenant_id, user_id)
+);
+```
+
+**`moderation_rules`** — per-tenant auto-moderation rules. Evaluated by the policy chain in the order specified (lower `priority` first).
+
+```sql
+CREATE TABLE moderation_rules (
+    id          BIGSERIAL PRIMARY KEY,
+    tenant_id   UUID         NOT NULL,
+    kind        TEXT         NOT NULL                -- 'WORD' | 'REGEX' | 'LINK_DOMAIN'
+        CHECK (kind IN ('WORD','REGEX','LINK_DOMAIN')),
+    pattern     TEXT         NOT NULL,
+    action      TEXT         NOT NULL                -- 'BLOCK' | 'MASK' | 'FLAG'
+        CHECK (action IN ('BLOCK','MASK','FLAG')),
+    priority    INTEGER      NOT NULL DEFAULT 100,
+    enabled     BOOLEAN      NOT NULL DEFAULT true,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE INDEX moderation_rules_tenant ON moderation_rules (tenant_id, enabled, priority);
+```
+
+### Throttling layers — defense in depth
+
+A misbehaving client must hit a wall **before** it touches the chat policy chain. The order matters: cheap checks first, expensive checks last.
+
+| Layer | Where | Key | Default limit | Storage |
+|---|---|---|---|---|
+| **Per-IP Centrifugo connect** | Centrifugo config | client IP | 5 connects / sec / IP | Centrifugo built-in |
+| **Per-IP login attempts** | Spring filter | client IP | 10 attempts / min / IP | Redis sliding window |
+| **Per-tenant API rate limit** | Spring filter | `tenant_id` from JWT | 1000 req / min / tenant | Redis token bucket |
+| **Per-user message slow mode** | Chat policy chain | `(session_id, user_id)` | session-configured (0/5/10/20/30/60 s) | Redis Lua INCR+EXPIRE |
+| **Per-user flood protection** | Chat policy chain | `(session_id, user_id)` | 5 messages / 10 sec (hard) | Redis Lua sliding window |
+| **Per-session global throttle** | Chat policy chain | `session_id` | 1000 messages / sec / session | Redis Lua, optional |
+
+**Rules for the throttling layers:**
+
+1. **All Redis throttling is Lua** — round-trip per check is single RTT. Never two-step (`GET` then `SET`).
+2. **Moderators bypass slow mode but never flood protection.** A compromised moderator account cannot DOS the room.
+3. **Throttling rejection returns `429` + a `Retry-After` header** with the wait in seconds. The frontend must show a polite "wait N s" hint, not an error toast.
+4. **Throttling counters do NOT persist to Postgres.** They live in Redis only. If Redis is unavailable, the throttling layer fails OPEN (allows the message) and emits a `ChatThrottlingDegraded` metric. Failing closed would deny chat to everyone.
+5. **Tenant ban enforcement is at Centrifugo connect time.** When the API issues a Centrifugo token, it queries `tenant_bans` and refuses to issue a token for banned users. Already-connected sessions are kicked via a Centrifugo `disconnect` API call when a new ban lands.
+
+### Bans must survive reconnect, refresh, and new sessions
+
+This is the rule that the naive design always gets wrong. Three checkpoints:
+
+1. **JWT issuance** (Keycloak callback): Webizon's IdP-side hook checks `tenant_bans` and refuses to mint a JWT for a banned user. They get bounced to a "your account is restricted" page.
+2. **Centrifugo connect** (per WebSocket open): Webizon's `connect_proxy` endpoint re-checks `tenant_bans` and `chat_user_status` for the session being joined. Refuses with `disconnect_code=4403`.
+3. **Per-message ingress**: The chat policy chain re-checks `chat_user_status` from Redis (with Postgres fallback). A ban that lands while the user is mid-typing rejects the next message with `429` + `code=BANNED`.
+
+A user banned in the middle of a session **must be kicked within 1 second**. This is a non-negotiable UX/safety budget.
+
+---
+
+## 25. Load Test Discipline — No Premature Tuning
+
+Right now Webizon serves zero traffic. Every performance number we have — `work_mem=64MB`, `max_connections=200`, Centrifugo `client_concurrent_messages`, Kafka `linger.ms=10`, Redis `maxmemory` — is a **guess**, not a measurement. Tuning guesses against more guesses produces a system that is brittle in unpredictable ways.
+
+### The discipline
+
+1. **Reasonable defaults ship first.** Don't pre-optimize. Use Spring Boot, Postgres, Redis, Centrifugo, and Kafka with vendor defaults plus the bare minimum we need to run (auth, multi-tenancy, the chat hot path). Resist the urge to set tunables until something measurably hurts.
+2. **Build the load test harness before the second feature ships.** k6 (preferred — simple JS scripts, good metrics, native Prometheus output) or Locust. Repo path: `loadtest/`. Scenarios live alongside the harness.
+3. **Run staged load tests against staging — never against local.** Staging must run on infra at the **shape** of production (right CPU/RAM ratio), even if smaller. Numbers from a developer laptop are not load tests; they are noise.
+4. **Standard ramp**: 1k → 5k → 10k → 30k → 60k concurrent. Each step is its own report. The first step that fails the Performance Budgets in §18 is the bottleneck.
+5. **Tune ONE knob per round.** After each round, change at most one configuration value, document why in `loadtest/adr/`, re-run the same scenario, and compare. If the change didn't help, revert it. Multi-knob tuning rounds make causality un-recoverable.
+6. **Promote tuning to CLAUDE.md only after a load test confirms it.** Setting numbers in §18 or §4 without a corresponding `loadtest/adr/NNNN-*.md` is forbidden.
+
+### What scenarios to run (in order)
+
+| # | Scenario | Goal | Pass criterion |
+|---|---|---|---|
+| 1 | **Auth flood**: 1000 logins/s for 60 s | Catch Keycloak / JWT validation issues early | p95 token issuance < 250 ms |
+| 2 | **Cold join**: 10 000 users join a single session over 30 s | Centrifugo connect throughput, JWT validation | Zero connect errors, p95 connect < 500 ms |
+| 3 | **Steady chat**: 10 000 connected, ~5 msg/min/active-10 % | Postgres write batching, Centrifugo fan-out | p95 message delivery < 200 ms, zero dropped writes |
+| 4 | **Burst chat**: same as above, but a 30-second window of 500 msg/s | `ChatWriteBuffer` saturation, Redis throttling | Zero data loss, slow mode kicks in correctly |
+| 5 | **Multi-session**: 30 sessions × 5 000 viewers each = 150 000 concurrent | Tenant isolation under load, Centrifugo node memory | No cross-session bleed, no Centrifugo node OOMs |
+| 6 | **Failure injection**: kill one Postgres replica during scenario 3 | Failover behavior | Reads degrade gracefully, writes pause < 5 s |
+| 7 | **Sustained 60k**: 60 000 concurrent for 30 minutes | The actual scale target | All §18 budgets hold throughout |
+
+### What is forbidden
+
+- Setting a Postgres tunable (`shared_buffers`, `work_mem`, `effective_cache_size`) without a matching `loadtest/adr/` entry.
+- Bumping a Centrifugo or Kafka throughput knob "to be safe" before a load test has shown it bottlenecks.
+- Quoting performance numbers (RPS, p95, concurrent capacity) in the README, marketing copy, or sales conversations until scenario 7 has been run on staging-shaped infra.
+- Using a load test result from a previous Spring Boot / Postgres / kernel version. Re-run after any major dependency bump.
+
+The point of this section is not bureaucracy. It is to make sure the **first** time we discover a bottleneck is in staging on a Tuesday morning, not in production at 8 PM during a customer's flagship webinar.
 
 ---
 
