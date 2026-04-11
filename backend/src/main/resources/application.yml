@@ -179,6 +179,15 @@ webizon:
       lead-time: 30m
       tick-interval: 60s
       initial-delay: 30s
+    # Session-starting sweeper — fans out SESSION_STARTING
+    # notifications the moment a session transitions to LIVE /
+    # AUTO_LIVE. Tick-interval is aggressive (30s) so the "join
+    # now" mail feels instant to the viewer; initial-delay
+    # staggers startup so the two notification sweepers do not
+    # wake on the same JVM tick.
+    session-starting:
+      tick-interval: 30s
+      initial-delay: 20s
 
 # ============================================================================
 # MANAGEMENT / ACTUATOR

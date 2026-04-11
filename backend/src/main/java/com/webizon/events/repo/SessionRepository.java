@@ -136,4 +136,27 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
            """)
     List<Session> findUpcomingWithinWindow(@Param("now") Instant now,
                                            @Param("windowEnd") Instant windowEnd);
+
+    /**
+     * Currently-airing sessions whose {@code SESSION_STARTING}
+     * fan-out has not yet been completed. Powers the
+     * {@code SessionStartingScheduler} — it picks up a session
+     * that just transitioned to LIVE / AUTO_LIVE, fans out
+     * notifications to every active registration, then stamps
+     * {@code sessionStartNotifiedAt} so the row drops out of this
+     * query on subsequent ticks.
+     *
+     * <p>Matches the partial index
+     * {@code sessions_pending_start_notification_idx} so the scan
+     * stays O(pending) even as tens of thousands of finalized
+     * sessions accumulate in the table.
+     */
+    @Query("""
+           select s from Session s
+           where s.status in (com.webizon.events.model.SessionStatus.LIVE,
+                              com.webizon.events.model.SessionStatus.AUTO_LIVE)
+             and s.sessionStartNotifiedAt is null
+           order by s.actualStartedAt asc
+           """)
+    List<Session> findPendingStartNotification();
 }

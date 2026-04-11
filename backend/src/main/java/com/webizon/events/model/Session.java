@@ -81,6 +81,18 @@ public class Session extends TenantAwareEntity {
     @Column(name = "billing_metered_at")
     private Instant billingMeteredAt;
 
+    /**
+     * Wall clock at which {@code SessionStartingScheduler} finished
+     * fanning out {@code SESSION_STARTING} notifications to every
+     * active registration for this session. Acts as a crash-safe
+     * cursor: a sweep that crashes halfway through leaves this
+     * column null, so the next tick replays from the beginning and
+     * the outbox's idempotency key dedupes the already-enqueued
+     * rows. Set once per session lifetime; never reset.
+     */
+    @Column(name = "session_start_notified_at")
+    private Instant sessionStartNotifiedAt;
+
     @Column(name = "created_by_user_id", nullable = false, updatable = false, columnDefinition = "UUID")
     private UUID createdByUserId;
 
