@@ -70,6 +70,17 @@ public class Session extends TenantAwareEntity {
     @Column(name = "finalized_at")
     private Instant finalizedAt;
 
+    /**
+     * Non-null once the billing usage sweeper has converted this
+     * session's attendance into {@code billing_usage_records}. Used
+     * as the idempotency marker — the sweeper only ever looks at
+     * rows where {@code finalizedAt IS NOT NULL AND billingMeteredAt
+     * IS NULL}, so a retry of a partially-completed tick cannot
+     * double-bill.
+     */
+    @Column(name = "billing_metered_at")
+    private Instant billingMeteredAt;
+
     @Column(name = "created_by_user_id", nullable = false, updatable = false, columnDefinition = "UUID")
     private UUID createdByUserId;
 

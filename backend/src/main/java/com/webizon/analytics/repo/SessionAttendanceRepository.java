@@ -61,4 +61,18 @@ public interface SessionAttendanceRepository extends JpaRepository<SessionAttend
 
     /** Cross-session history: every session this profile ever attended. */
     List<SessionAttendance> findAllByProfileIdOrderByFirstJoinedAtDesc(UUID profileId);
+
+    /**
+     * Sum of {@code totalConnectedSeconds} across every attendee of
+     * a session. This is the seat-second aggregate the billing usage
+     * sweeper converts into a {@code SEAT_LIVE} / {@code SEAT_AUTO}
+     * usage record. Returns zero for an un-attended session so the
+     * sweeper's inner loop doesn't need a null check.
+     */
+    @Query("""
+           select coalesce(sum(a.totalConnectedSeconds), 0)
+             from SessionAttendance a
+            where a.sessionId = :sessionId
+           """)
+    long sumTotalConnectedSecondsBySessionId(@Param("sessionId") UUID sessionId);
 }

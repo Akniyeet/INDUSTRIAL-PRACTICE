@@ -97,4 +97,18 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
            order by s.startTime asc
            """)
     List<Session> findAutoSessionsReadyToStart(@Param("cutoff") Instant cutoff);
+
+    /**
+     * Finalized sessions the billing usage sweeper has not yet
+     * metered. Ordered by {@code finalized_at} ascending so older
+     * sessions are billed first — a backlog never skips anything.
+     * Matches the partial index {@code sessions_billing_unmetered_idx}.
+     */
+    @Query("""
+           select s from Session s
+           where s.finalizedAt is not null
+             and s.billingMeteredAt is null
+           order by s.finalizedAt asc
+           """)
+    List<Session> findUnmeteredFinalizedSessions();
 }
