@@ -4,6 +4,7 @@ const { appName } = useRuntimeConfig().public
 
 <template>
   <div class="min-h-screen flex flex-col">
+    <UiToastContainer />
     <header class="border-b border-slate-200 bg-white/80 backdrop-blur">
       <div class="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4">
         <NuxtLink to="/" class="flex items-center gap-2 font-semibold text-brand-700">

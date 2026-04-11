@@ -22,6 +22,18 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  // Flatten `components/**` so that `UiButton.vue` is callable as `<UiButton>`.
+  // `pathPrefix: false` drops the directory segment — otherwise the ui/ folder
+  // would bloat every component name to `UiUiButton`.
+  components: [
+    { path: '~/components', pathPrefix: false },
+  ],
+
+  // Auto-import stores so components can just call useToastStore() etc.
+  imports: {
+    dirs: ['stores', 'composables'],
+  },
+
   typescript: {
     strict: true,
     typeCheck: false, // run via `npm run typecheck` in CI, not on every dev boot

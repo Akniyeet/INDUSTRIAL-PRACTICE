@@ -28,8 +28,10 @@ export function useCentrifuge() {
       // `refreshToken` endpoint the backend exposes.
       token: auth.token ?? '',
       getToken: async () => {
-        // Delegated to backend /api/v1/rt/token — implemented in Phase 3.
-        const resp = await useApi()<{ token: string }>('/v1/rt/token', { method: 'POST' })
+        // Delegated to the backend /api/v1/realtime/connect-token endpoint.
+        // See shared/api/endpoints/realtime.ts.
+        const api = useApi()
+        const resp = await api.realtime.mintConnectToken()
         return resp.token
       },
       debug: import.meta.dev,
