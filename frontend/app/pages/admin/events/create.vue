@@ -6,7 +6,7 @@
  * API call; this page just provides the surrounding chrome and handles the
  * post-submit navigation to the newly created event.
  */
-import type { EventResponse } from '~/shared/api/types'
+import type { EventResponse } from '#shared/api/types'
 
 definePageMeta({
   layout: 'admin',

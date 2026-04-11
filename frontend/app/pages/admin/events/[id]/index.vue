@@ -32,7 +32,7 @@ import {
 } from 'lucide-vue-next'
 import { ref, computed, watch } from 'vue'
 import { format } from 'date-fns'
-import type { EventResponse } from '~/shared/api/types'
+import type { EventResponse } from '#shared/api/types'
 
 definePageMeta({
   layout: 'admin',

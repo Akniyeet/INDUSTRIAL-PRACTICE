@@ -1,4 +1,4 @@
-import { createApi, type Api } from '~/shared/api'
+import { createApi, type Api } from '#shared/api'
 
 /**
  * Nuxt-aware bridge to {@link createApi}.

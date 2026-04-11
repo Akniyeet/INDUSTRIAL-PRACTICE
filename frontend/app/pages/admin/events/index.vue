@@ -21,7 +21,7 @@
 import { Calendar, Plus, RefreshCw, Search, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { ref, computed, watch, onMounted } from 'vue'
 import { format } from 'date-fns'
-import type { EventResponse, EventStatus, Page } from '~/shared/api/types'
+import type { EventResponse, EventStatus, Page } from '#shared/api/types'
 
 definePageMeta({
   layout: 'admin',

@@ -7,7 +7,7 @@
  * fresh overview immediately — no stale cached read.
  */
 import { AlertTriangle } from 'lucide-vue-next'
-import type { EventResponse } from '~/shared/api/types'
+import type { EventResponse } from '#shared/api/types'
 
 definePageMeta({
   layout: 'admin',

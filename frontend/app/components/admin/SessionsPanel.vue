@@ -39,7 +39,7 @@ import {
 } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 import { format, formatDistanceToNow } from 'date-fns'
-import type { SessionResponse, SessionStatus, UUID } from '~/shared/api/types'
+import type { SessionResponse, SessionStatus, UUID } from '#shared/api/types'
 
 const props = defineProps<{
   eventId: UUID

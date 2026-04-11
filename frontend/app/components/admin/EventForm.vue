@@ -27,7 +27,7 @@ import type {
   EventCreateRequest,
   EventResponse,
   EventUpdateRequest,
-} from '~/shared/api/types'
+} from '#shared/api/types'
 
 type Mode = 'create' | 'edit'
 

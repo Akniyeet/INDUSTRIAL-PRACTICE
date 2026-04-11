@@ -4,7 +4,7 @@
  * for the Kazakh labels and tones so that a rename in the backend never
  * leaves half the frontend showing the old value.
  */
-import type { EventStatus } from '~/shared/api'
+import type { EventStatus } from '#shared/api'
 import { computed } from 'vue'
 
 const props = defineProps<{ status: EventStatus }>()
@@ -14,6 +14,7 @@ const config = computed(() => {
     case 'DRAFT':     return { tone: 'neutral' as const, label: 'Жоба' }
     case 'PUBLISHED': return { tone: 'success' as const, label: 'Жарияланған' }
     case 'ARCHIVED':  return { tone: 'warning' as const, label: 'Мұрағатта' }
+    default:          return { tone: 'neutral' as const, label: String(props.status) }
   }
 })
 </script>

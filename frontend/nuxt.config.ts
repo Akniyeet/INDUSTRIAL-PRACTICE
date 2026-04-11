@@ -7,8 +7,10 @@
 // internal Docker hostname and to keep CORS simple in development.
 
 export default defineNuxtConfig({
+  // Nuxt 4: `srcDir: 'app/'` is the default, so every app-side file lives in
+  // `app/`. Framework-agnostic code (`shared/`), build config, and the Nitro
+  // server layer stay at the repo root. See CLAUDE.md §23 for the rationale.
   compatibilityDate: '2025-01-01',
-  future: { compatibilityVersion: 4 },
 
   devtools: { enabled: true },
   ssr: true,
@@ -24,12 +26,14 @@ export default defineNuxtConfig({
 
   // Flatten `components/**` so that `UiButton.vue` is callable as `<UiButton>`.
   // `pathPrefix: false` drops the directory segment — otherwise the ui/ folder
-  // would bloat every component name to `UiUiButton`.
+  // would bloat every component name to `UiUiButton`. `~` resolves to `app/`
+  // under Nuxt 4, so this path still points at `app/components/**`.
   components: [
     { path: '~/components', pathPrefix: false },
   ],
 
   // Auto-import stores so components can just call useToastStore() etc.
+  // Paths are resolved relative to srcDir (`app/`).
   imports: {
     dirs: ['stores', 'composables'],
   },

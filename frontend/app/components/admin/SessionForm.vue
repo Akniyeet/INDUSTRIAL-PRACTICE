@@ -37,7 +37,7 @@ import type {
   SessionType,
   SessionUpdateRequest,
   UUID,
-} from '~/shared/api/types'
+} from '#shared/api/types'
 
 type Mode = 'create' | 'edit'
 
