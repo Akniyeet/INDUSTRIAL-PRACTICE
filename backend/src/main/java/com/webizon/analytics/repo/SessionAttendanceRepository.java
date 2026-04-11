@@ -31,6 +31,20 @@ public interface SessionAttendanceRepository extends JpaRepository<SessionAttend
            """)
     List<SessionAttendance> findPresentBySessionId(@Param("sessionId") UUID sessionId);
 
+    /**
+     * Cheap count of currently-present viewers — used by the room
+     * bootstrap endpoint and admin live-control surface. Equivalent to
+     * {@code findPresentBySessionId(...).size()} but avoids hydrating
+     * rows into the first-level cache, which matters when the live
+     * control UI refreshes every few seconds.
+     */
+    @Query("""
+           select count(a) from SessionAttendance a
+           where a.sessionId = :sessionId
+             and a.leftAt is null
+           """)
+    long countPresentBySessionId(@Param("sessionId") UUID sessionId);
+
     long countBySessionId(UUID sessionId);
 
     /**
