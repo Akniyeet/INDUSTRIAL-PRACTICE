@@ -29,6 +29,7 @@ CREATE TABLE tenants (
     default_timezone    VARCHAR(64)    NOT NULL DEFAULT 'Asia/Almaty',
     status              VARCHAR(32)    NOT NULL DEFAULT 'TRIAL',
     trial_ends_at       TIMESTAMPTZ,
+    version             BIGINT         NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ    NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ    NOT NULL DEFAULT now(),
 
@@ -59,7 +60,9 @@ CREATE TABLE users (
     avatar_url          TEXT,
     locale              VARCHAR(8)     NOT NULL DEFAULT 'ru-KZ',
     timezone            VARCHAR(64)    NOT NULL DEFAULT 'Asia/Almaty',
+    is_platform_admin   BOOLEAN        NOT NULL DEFAULT FALSE,
     last_login_at       TIMESTAMPTZ,
+    version             BIGINT         NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ    NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ    NOT NULL DEFAULT now()
 );
@@ -79,6 +82,7 @@ CREATE TABLE tenant_users (
     status              VARCHAR(16)    NOT NULL DEFAULT 'ACTIVE',
     invited_by_user_id  UUID           REFERENCES users(id),
     joined_at           TIMESTAMPTZ    NOT NULL DEFAULT now(),
+    version             BIGINT         NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ    NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ    NOT NULL DEFAULT now(),
 
@@ -114,6 +118,7 @@ CREATE TABLE plans (
     vat_bps                     INTEGER        NOT NULL DEFAULT 1200, -- 12% Kazakhstan VAT
     trial_days                  INTEGER        NOT NULL DEFAULT 14,
     is_public                   BOOLEAN        NOT NULL DEFAULT TRUE,
+    version                     BIGINT         NOT NULL DEFAULT 0,
     created_at                  TIMESTAMPTZ    NOT NULL DEFAULT now(),
     updated_at                  TIMESTAMPTZ    NOT NULL DEFAULT now(),
 
@@ -166,6 +171,7 @@ CREATE TABLE subscriptions (
     cancellation_reason VARCHAR(255),
     external_provider   VARCHAR(32),
     external_id         VARCHAR(128),
+    version             BIGINT         NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ    NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ    NOT NULL DEFAULT now(),
 

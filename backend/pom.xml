@@ -84,10 +84,10 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
-        </dependency>
+        <!-- Flyway 9.x (managed by Spring Boot 3.2) has PostgreSQL support built into
+             flyway-core; the separate flyway-database-postgresql artifact only exists
+             from Flyway 10+. -->
+
 
         <!-- Redis -->
         <dependency>
