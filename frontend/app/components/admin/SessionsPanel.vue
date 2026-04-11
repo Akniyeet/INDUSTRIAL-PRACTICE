@@ -328,9 +328,9 @@ const totalCount = computed(() => sessions.value.length)
                 </div>
               </div>
               <div class="flex items-center gap-2">
-                <UiButton variant="outline" size="sm" :to="`/admin/sessions/${s.id}`">
-                  <ExternalLink class="h-3.5 w-3.5" />
-                  Басқару
+                <UiButton variant="primary" size="sm" :to="`/admin/sessions/${s.id}/live`">
+                  <Radio class="h-3.5 w-3.5" />
+                  Эфирді басқару
                 </UiButton>
                 <UiButton
                   variant="danger"

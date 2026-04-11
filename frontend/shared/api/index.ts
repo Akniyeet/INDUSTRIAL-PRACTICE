@@ -3,6 +3,7 @@ import { AuthApi } from './endpoints/auth'
 import { ChatApi } from './endpoints/chat'
 import { CtaApi } from './endpoints/cta'
 import { EventsApi } from './endpoints/events'
+import { ModerationApi } from './endpoints/moderation'
 import { PublicEventsApi } from './endpoints/publicEvents'
 import { RealtimeApi } from './endpoints/realtime'
 import { RoomApi } from './endpoints/room'
@@ -33,6 +34,7 @@ export interface Api {
   room:          RoomApi
   chat:          ChatApi
   cta:           CtaApi
+  moderation:    ModerationApi
   realtime:      RealtimeApi
 }
 
@@ -46,6 +48,7 @@ export function createApi(opts: ApiClientOptions): Api {
     room:         new RoomApi(client),
     chat:         new ChatApi(client),
     cta:          new CtaApi(client),
+    moderation:   new ModerationApi(client),
     realtime:     new RealtimeApi(client),
   }
 }

@@ -271,6 +271,65 @@ export interface CtaCreateRequest {
 export type CtaUpdateRequest = Partial<CtaCreateRequest>
 
 // ---------------------------------------------------------------------------
+// Moderation
+// ---------------------------------------------------------------------------
+
+/**
+ * All moderator-grade actions recorded in the audit log.
+ *
+ * <p>The backend enum lives at {@code com.webizon.chat.model.ModerationActionType}
+ * — keep this in sync. UI uses it to label rows and to decide which icon /
+ * colour to show in the moderation log.
+ */
+export type ModerationActionType =
+  | 'WARNING'
+  | 'MUTE'
+  | 'CHAT_BAN'
+  | 'ROOM_REMOVE'
+  | 'FULL_BAN'
+  | 'MESSAGE_DELETE'
+  | 'MESSAGE_HIDE'
+
+export interface ModerationActionResponse {
+  id: UUID
+  sessionId: UUID
+  targetUserId: UUID
+  moderatorUserId: UUID
+  actionType: ModerationActionType
+  targetMessageId: UUID | null
+  reason: string | null
+  durationSeconds: number | null
+  createdAt: ISODate
+}
+
+export interface WarnRequest {
+  targetUserId: UUID
+  reason?: string
+}
+
+export interface MuteRequest {
+  targetUserId: UUID
+  /** 1..86400. Backend enforces the clamp — UI should still send sane defaults. */
+  durationSeconds: number
+  reason?: string
+}
+
+export interface BanRequest {
+  targetUserId: UUID
+  reason?: string
+}
+
+export interface DeleteMessageRequest {
+  messageId: UUID
+  reason?: string
+}
+
+export interface HideMessageRequest {
+  messageId: UUID
+  reason?: string
+}
+
+// ---------------------------------------------------------------------------
 // Room bootstrap
 // ---------------------------------------------------------------------------
 
