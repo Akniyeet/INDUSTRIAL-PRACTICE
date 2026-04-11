@@ -150,7 +150,7 @@ These choices are final. Changing any of them requires an ADR approved before wo
 - **OpenSearch** for event catalog search and chat log search (not MVP)
 
 ### Frontend
-- **Framework**: Nuxt 3.21 with `future.compatibilityVersion: 4` (forward-compat mode; pure Nuxt 4 migration is a later phase)
+- **Framework**: **Nuxt 4.4** (pure Nuxt 4, not forward-compat mode). All app code lives under `frontend/app/` — the new default srcDir convention. Root-level dirs kept outside `app/`: `shared/`, `public/`, `server/` (Nitro), plus build config (`nuxt.config.ts`, `tailwind.config.ts`, `eslint.config.mjs`, `tsconfig.json`, `Dockerfile`). Inside templates the `~` alias resolves to `app/`, and the top-level `shared/` tree is reached via the generated `#shared` alias (not `~/shared`).
 - **Language**: Vue 3 + TypeScript (strict mode)
 - **State**: Pinia
 - **Styling**: Tailwind CSS + semantic token extensions (`brand.*`, `success.*`, `warning.*`, `danger.*`) in `tailwind.config.ts`
@@ -757,24 +757,38 @@ Everything else is deferred until MVP is provably stable under load testing.
 
 These are the concrete rules that crystallised during F1 (foundation) and F2 (admin events) and now apply to every subsequent frontend phase. If a new phase needs to violate one of them, write a note here first.
 
-### Directory layout
+### Directory layout (Nuxt 4 `app/` convention)
 ```
 frontend/
-├── assets/css/main.css         ← Tailwind base + utility classes (input-base, field-label, card, ...)
-├── components/
-│   ├── ui/                     ← Reusable, brandless primitives (UiButton, UiCard, UiModal, ...)
-│   └── admin/                  ← Admin-chrome pieces (PageHeader, EventStatusBadge, EventForm, ...)
-├── composables/                ← useApi, useCentrifuge, ... (auto-imported)
-├── layouts/                    ← default.vue, admin.vue
-├── pages/                      ← file-based routing (see Route grouping below)
-├── plugins/                    ← auth.client.ts, ...
-├── shared/api/                 ← Typed API facade — framework-agnostic
+├── app/                        ← srcDir — everything Vue/Nuxt autoimports lives here
+│   ├── app.vue
+│   ├── assets/css/main.css     ← Tailwind base + utility classes (input-base, field-label, card, ...)
+│   ├── components/
+│   │   ├── ui/                 ← Reusable, brandless primitives (UiButton, UiCard, UiModal, ...)
+│   │   └── admin/              ← Admin-chrome pieces (PageHeader, EventStatusBadge, EventForm, ...)
+│   ├── composables/            ← useApi, useCentrifuge, ... (auto-imported)
+│   ├── layouts/                ← default.vue, admin.vue
+│   ├── middleware/             ← auth.ts, ...
+│   ├── pages/                  ← file-based routing (see Route grouping below)
+│   ├── plugins/                ← auth.client.ts, ...
+│   └── stores/                 ← Pinia stores (auth, toast, ...) auto-imported
+├── shared/api/                 ← Typed API facade — framework-agnostic, outside app/
 │   ├── client.ts               ← ApiClient class
 │   ├── types.ts                ← Hand-written TS mirrors of backend DTOs
 │   ├── endpoints/              ← One module per backend controller
 │   └── index.ts                ← createApi() factory
-└── stores/                     ← Pinia stores (auth, toast, ...)  auto-imported
+├── public/                     ← Static assets served verbatim
+├── server/                     ← Nitro routes (reserved, currently unused)
+├── nuxt.config.ts
+├── tailwind.config.ts
+├── eslint.config.mjs
+├── tsconfig.json
+└── Dockerfile
 ```
+
+Two aliases are relevant inside templates and scripts:
+- `~` and `@` → `frontend/app/` (srcDir). Use for components, pages, composables, stores.
+- `#shared` → `frontend/shared/`. Use for the API facade: `import type { EventResponse } from '#shared/api/types'`. **Never** write `~/shared/...` — that path does not exist under Nuxt 4 because `~` now points at `app/`, not the frontend root.
 
 ### Component naming and auto-imports
 - `nuxt.config.ts` uses `components: [{ path: '~/components', pathPrefix: false }]`.
