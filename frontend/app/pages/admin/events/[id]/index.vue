@@ -29,6 +29,7 @@ import {
   Radio,
   Megaphone,
   MessageSquare,
+  Clock,
 } from 'lucide-vue-next'
 import { ref, computed, watch } from 'vue'
 import { format } from 'date-fns'
@@ -64,12 +65,13 @@ useHead({
 // Tabs
 // ---------------------------------------------------------------------------
 
-type TabKey = 'overview' | 'sessions' | 'cta' | 'chat'
+type TabKey = 'overview' | 'sessions' | 'cta' | 'chat' | 'timeline'
 const tabs: { key: TabKey; label: string; icon: typeof Calendar }[] = [
-  { key: 'overview', label: 'Шолу',           icon: Calendar },
-  { key: 'sessions', label: 'Сессиялар',      icon: Radio },
-  { key: 'cta',      label: 'CTA',            icon: Megaphone },
-  { key: 'chat',     label: 'Чат баптаулары', icon: MessageSquare },
+  { key: 'overview',  label: 'Шолу',           icon: Calendar },
+  { key: 'sessions',  label: 'Сессиялар',      icon: Radio },
+  { key: 'cta',       label: 'CTA',            icon: Megaphone },
+  { key: 'timeline',  label: 'Таймлайн',       icon: Clock },
+  { key: 'chat',      label: 'Чат баптаулары', icon: MessageSquare },
 ]
 
 const activeTab = ref<TabKey>((route.query.tab as TabKey) || 'overview')
@@ -349,23 +351,25 @@ function formatDate(iso: string | null) {
       <!-- Tab: Sessions -->
       <SessionsPanel v-else-if="activeTab === 'sessions'" :event-id="event.id" />
 
-      <!-- Tab: CTA (placeholder) -->
+      <!-- Tab: CTA -->
+      <CtaPanel v-else-if="activeTab === 'cta'" :event-id="event.id" />
+
+      <!-- Tab: Timeline (event-level overview, links to session timelines) -->
       <UiEmpty
-        v-else-if="activeTab === 'cta'"
-        title="CTA редакторы әлі жоқ"
-        description="CTA редакторы F2-ден кейін келеді. Ол жерде файл/сілтеме/курс/форма типіндегі CTA-ларды баптап, эфирге жіберу мүмкіндігі болады."
+        v-else-if="activeTab === 'timeline'"
+        title="Таймлайн"
+        description="Таймлайн әрекеттері сессия деңгейінде басқарылады. Сессиялар табына өтіп, аяқталған LIVE сессияның 'Таймлайн' батырмасын басыңыз."
       >
-        <template #icon><Megaphone class="h-5 w-5" /></template>
+        <template #icon><Clock class="h-5 w-5" /></template>
+        <template #actions>
+          <UiButton variant="outline" @click="activeTab = 'sessions'">
+            Сессияларға өту
+          </UiButton>
+        </template>
       </UiEmpty>
 
-      <!-- Tab: Chat settings (placeholder) -->
-      <UiEmpty
-        v-else-if="activeTab === 'chat'"
-        title="Чат баптаулары"
-        description="Slow mode, анти-спам, сәлемдесу — чат баптаулары бөлек итерацияда баяндалады."
-      >
-        <template #icon><MessageSquare class="h-5 w-5" /></template>
-      </UiEmpty>
+      <!-- Tab: Chat settings -->
+      <ChatSettingsPanel v-else-if="activeTab === 'chat'" :event-id="event.id" />
     </template>
 
     <!-- Publish confirm -->
