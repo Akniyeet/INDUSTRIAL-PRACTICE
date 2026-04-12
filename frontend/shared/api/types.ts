@@ -330,6 +330,41 @@ export interface HideMessageRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Analytics report
+// ---------------------------------------------------------------------------
+
+export interface SessionSummary {
+  totalAttendees: number
+  presentNow: number
+  watchedLongCount: number
+  chatMessages: number
+  ctaClicks: number
+  moderationEventCount: number
+}
+
+export interface RetentionPoint {
+  offsetSeconds: number
+  viewers: number
+}
+
+export interface CtaCtrRow {
+  ctaId: UUID
+  title: string
+  type: string
+  impressions: number
+  clicks: number
+  downloads: number
+  ctr: number
+}
+
+export interface SessionReportResponse {
+  sessionId: UUID
+  summary: SessionSummary
+  retentionCurve: RetentionPoint[]
+  ctaCtr: CtaCtrRow[]
+}
+
+// ---------------------------------------------------------------------------
 // Room bootstrap
 // ---------------------------------------------------------------------------
 

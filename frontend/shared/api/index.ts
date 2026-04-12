@@ -1,4 +1,5 @@
 import { ApiClient, type ApiClientOptions } from './client'
+import { AnalyticsApi } from './endpoints/analytics'
 import { AuthApi } from './endpoints/auth'
 import { ChatApi } from './endpoints/chat'
 import { CtaApi } from './endpoints/cta'
@@ -27,6 +28,7 @@ export { ApiClient, isApiError } from './client'
  *   3. Mocking in tests is a single swap.
  */
 export interface Api {
+  analytics:     AnalyticsApi
   auth:          AuthApi
   events:        EventsApi
   sessions:      SessionsApi
@@ -41,6 +43,7 @@ export interface Api {
 export function createApi(opts: ApiClientOptions): Api {
   const client = new ApiClient(opts)
   return {
+    analytics:    new AnalyticsApi(client),
     auth:         new AuthApi(client),
     events:       new EventsApi(client),
     sessions:     new SessionsApi(client),
