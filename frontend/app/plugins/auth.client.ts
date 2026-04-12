@@ -22,6 +22,7 @@ export default defineNuxtPlugin(() => {
         fullName: 'Dev Admin',
         role: 'TENANT_OWNER',
         tenantId: '00000000-0000-0000-0000-00000000aaaa',
+        tenantSlug: 'dev-workspace',
       },
     })
   }

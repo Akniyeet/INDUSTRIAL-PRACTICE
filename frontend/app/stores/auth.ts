@@ -14,6 +14,7 @@ export interface AuthUser {
   fullName: string | null
   role: string
   tenantId: string | null
+  tenantSlug: string | null
   avatarUrl?: string | null
 }
 
@@ -35,6 +36,7 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (s): boolean => !!s.token && (s.expiresAt ?? 0) > Date.now(),
     tenantId:        (s): string | null => s.user?.tenantId ?? null,
+    tenantSlug:      (s): string | null => s.user?.tenantSlug ?? null,
     hasRole:         (s) => (role: string): boolean => s.user?.role === role,
   },
 

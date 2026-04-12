@@ -46,6 +46,7 @@ const api = useApi()
 const toast = useToastStore()
 
 const eventId = computed(() => route.params.id as string)
+const auth = useAuthStore()
 
 // ---------------------------------------------------------------------------
 // Data
@@ -331,8 +332,8 @@ function formatDate(iso: string | null) {
             </dl>
             <template #footer>
               <NuxtLink
-                v-if="event.status === 'PUBLISHED'"
-                :to="`/event/${event.slug}`"
+                v-if="event.status === 'PUBLISHED' && auth.tenantSlug"
+                :to="`/e/${auth.tenantSlug}/${event.slug}`"
                 target="_blank"
                 class="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800"
               >
