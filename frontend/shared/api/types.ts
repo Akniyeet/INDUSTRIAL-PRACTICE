@@ -365,6 +365,22 @@ export interface SessionReportResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Historical chat review
+// ---------------------------------------------------------------------------
+
+export interface HistoricalChatMessageView {
+  id: UUID
+  sessionId: UUID
+  userId: UUID | null
+  messageType: MessageType
+  replyToMessageId: UUID | null
+  text: string
+  offsetSeconds: number | null
+  excludedFromReplay: boolean
+  createdAt: ISODate
+}
+
+// ---------------------------------------------------------------------------
 // Room bootstrap
 // ---------------------------------------------------------------------------
 

@@ -38,6 +38,7 @@ import {
   AlertTriangle,
   Download,
   BarChart3,
+  MessageSquareText,
 } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -449,6 +450,10 @@ const totalCount = computed(() => sessions.value.length)
                 <UiButton variant="ghost" size="sm" :to="`/admin/sessions/${s.id}/analytics`">
                   <BarChart3 class="h-3.5 w-3.5" />
                   Аналитика
+                </UiButton>
+                <UiButton v-if="s.type === 'LIVE'" variant="ghost" size="sm" :to="`/admin/sessions/${s.id}/chat-review`">
+                  <MessageSquareText class="h-3.5 w-3.5" />
+                  Чат тарихы
                 </UiButton>
                 <UiButton variant="ghost" size="sm" @click="downloadExport(s.id)">
                   <Download class="h-3.5 w-3.5" />

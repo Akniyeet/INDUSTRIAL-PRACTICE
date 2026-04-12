@@ -4,6 +4,7 @@ import { AuthApi } from './endpoints/auth'
 import { ChatApi } from './endpoints/chat'
 import { CtaApi } from './endpoints/cta'
 import { EventsApi } from './endpoints/events'
+import { HistoricalChatApi } from './endpoints/historicalChat'
 import { ModerationApi } from './endpoints/moderation'
 import { PublicEventsApi } from './endpoints/publicEvents'
 import { RealtimeApi } from './endpoints/realtime'
@@ -28,30 +29,32 @@ export { ApiClient, isApiError } from './client'
  *   3. Mocking in tests is a single swap.
  */
 export interface Api {
-  analytics:     AnalyticsApi
-  auth:          AuthApi
-  events:        EventsApi
-  sessions:      SessionsApi
-  publicEvents:  PublicEventsApi
-  room:          RoomApi
-  chat:          ChatApi
-  cta:           CtaApi
-  moderation:    ModerationApi
-  realtime:      RealtimeApi
+  analytics:       AnalyticsApi
+  auth:            AuthApi
+  events:          EventsApi
+  sessions:        SessionsApi
+  publicEvents:    PublicEventsApi
+  room:            RoomApi
+  chat:            ChatApi
+  cta:             CtaApi
+  historicalChat:  HistoricalChatApi
+  moderation:      ModerationApi
+  realtime:        RealtimeApi
 }
 
 export function createApi(opts: ApiClientOptions): Api {
   const client = new ApiClient(opts)
   return {
-    analytics:    new AnalyticsApi(client),
-    auth:         new AuthApi(client),
-    events:       new EventsApi(client),
-    sessions:     new SessionsApi(client),
-    publicEvents: new PublicEventsApi(client),
-    room:         new RoomApi(client),
-    chat:         new ChatApi(client),
-    cta:          new CtaApi(client),
-    moderation:   new ModerationApi(client),
-    realtime:     new RealtimeApi(client),
+    analytics:      new AnalyticsApi(client),
+    auth:           new AuthApi(client),
+    events:         new EventsApi(client),
+    sessions:       new SessionsApi(client),
+    publicEvents:   new PublicEventsApi(client),
+    room:           new RoomApi(client),
+    chat:           new ChatApi(client),
+    cta:            new CtaApi(client),
+    historicalChat: new HistoricalChatApi(client),
+    moderation:     new ModerationApi(client),
+    realtime:       new RealtimeApi(client),
   }
 }
