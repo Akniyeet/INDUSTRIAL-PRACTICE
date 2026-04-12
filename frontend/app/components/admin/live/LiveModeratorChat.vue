@@ -25,9 +25,27 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'delete-message', messageId: UUID): void
-  (e: 'mute-user', userId: UUID, displayName: string | null): void
-  (e: 'chat-ban-user', userId: UUID, displayName: string | null): void
+  (e: 'mute-user', userId: UUID, label: string | null): void
+  (e: 'chat-ban-user', userId: UUID, label: string | null): void
 }>()
+
+/**
+ * Stable avatar initial — backend doesn't ship a resolved display name, so we
+ * fall back to the first hex character of the author uuid (deterministic per
+ * user). SYSTEM and ADMIN rows get fixed markers.
+ */
+function avatarInitial(m: RoomChatMessageView): string {
+  if (m.messageType === 'SYSTEM') return '•'
+  if (m.messageType === 'ADMIN') return 'A'
+  const id = m.userId ?? ''
+  return id ? id.slice(0, 1).toUpperCase() : '?'
+}
+
+function authorLabel(m: RoomChatMessageView): string {
+  if (m.messageType === 'SYSTEM') return 'Жүйе'
+  if (m.messageType === 'ADMIN') return 'Админ'
+  return m.userId ? `${m.userId.slice(0, 8)}…` : 'Аноним'
+}
 
 const text = ref('')
 const sending = ref(false)
@@ -112,19 +130,19 @@ const visibleMessages = computed(() => props.messages)
           <div
             class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700"
             :class="{
-              'bg-warning-100 text-warning-700': m.type === 'ADMIN',
-              'bg-slate-100 text-slate-500': m.type === 'SYSTEM',
+              'bg-warning-100 text-warning-700': m.messageType === 'ADMIN',
+              'bg-slate-100 text-slate-500': m.messageType === 'SYSTEM',
             }"
           >
-            {{ (m.displayName ?? '?').slice(0, 1).toUpperCase() }}
+            {{ avatarInitial(m) }}
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-baseline gap-2">
               <span class="truncate text-xs font-semibold text-slate-700">
-                {{ m.displayName ?? 'Аноним' }}
+                {{ authorLabel(m) }}
               </span>
               <span
-                v-if="m.type === 'ADMIN'"
+                v-if="m.messageType === 'ADMIN'"
                 class="rounded bg-warning-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning-700"
               >Admin</span>
               <span class="text-[11px] text-slate-400">{{ formatTime(m.createdAt) }}</span>
@@ -160,7 +178,7 @@ const visibleMessages = computed(() => props.messages)
               type="button"
               :disabled="!m.userId"
               class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300"
-              @click="handleMute(m.userId, m.displayName)"
+              @click="handleMute(m.userId, authorLabel(m))"
             >
               <VolumeX class="h-3.5 w-3.5" />
               Пайдаланушыны уақытша үнсіз қою
@@ -169,7 +187,7 @@ const visibleMessages = computed(() => props.messages)
               type="button"
               :disabled="!m.userId"
               class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-300"
-              @click="handleChatBan(m.userId, m.displayName)"
+              @click="handleChatBan(m.userId, authorLabel(m))"
             >
               <ShieldBan class="h-3.5 w-3.5" />
               Чаттан бан

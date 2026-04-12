@@ -107,15 +107,20 @@ watch(
 // ---------------------------------------------------------------------------
 // Centrifuge wiring — same channels as the participant room
 // ---------------------------------------------------------------------------
-type ChatPub     = { message: RoomChatMessageView } | RoomChatMessageView
-type TimelinePub = {
+type ChatPub = { message: RoomChatMessageView } | RoomChatMessageView
+type CtaPub = {
   type: 'CTA_SHOW' | 'CTA_HIDE'
   cta?: CtaResponse
   ctaId?: string
 }
-type SystemPub = {
-  type: 'PresenceChanged' | 'ChatStatusChanged' | 'SessionStatusChanged'
+/** Presence channel emits the current attendee count. */
+type PresencePub = {
+  type?: 'PresenceChanged'
   presentNow?: number
+}
+/** State channel emits session-status transitions (SCHEDULED → LIVE → ENDED). */
+type StatePub = {
+  type: 'SessionStatusChanged'
   status?: RoomBootstrapResponse['session']['status']
 }
 
@@ -127,7 +132,7 @@ onMounted(() => {
   const { subscribe } = useCentrifuge()
 
   subs.push(
-    subscribe<ChatPub>(channels.chatChannel, {
+    subscribe<ChatPub>(channels.chat, {
       onPublication: (data) => {
         const msg = (data as { message?: RoomChatMessageView }).message ?? (data as RoomChatMessageView)
         if (!msg?.id) return
@@ -137,7 +142,7 @@ onMounted(() => {
   )
 
   subs.push(
-    subscribe<TimelinePub>(channels.timelineChannel, {
+    subscribe<CtaPub>(channels.cta, {
       onPublication: (evt) => {
         if (evt.type === 'CTA_SHOW' && evt.cta) {
           const next = new Set(activeCtaIds.value)
@@ -156,11 +161,17 @@ onMounted(() => {
   )
 
   subs.push(
-    subscribe<SystemPub>(channels.systemChannel, {
+    subscribe<PresencePub>(channels.presence, {
       onPublication: (evt) => {
-        if (evt.type === 'PresenceChanged' && typeof evt.presentNow === 'number') {
-          presentNow.value = evt.presentNow
-        } else if (evt.type === 'SessionStatusChanged' && evt.status) {
+        if (typeof evt.presentNow === 'number') presentNow.value = evt.presentNow
+      },
+    }),
+  )
+
+  subs.push(
+    subscribe<StatePub>(channels.state, {
+      onPublication: (evt) => {
+        if (evt.type === 'SessionStatusChanged' && evt.status) {
           sessionStatus.value = evt.status
         }
       },

@@ -341,32 +341,58 @@ export interface RoomChatSettingsView {
   welcomeMessage: string | null
 }
 
+/**
+ * Room-bootstrap projection of a chat row.
+ *
+ * <p>Shape matches {@code com.webizon.room.api.dto.RoomChatMessageView} on
+ * the backend exactly. Notably {@code messageType} (not {@code type}) and
+ * there is no display name — the UI currently falls back to a short form
+ * of the user id for the avatar initial. Backend enrichment with a
+ * resolved display name is tracked as a future backlog item; until then
+ * the UI stays honest about what it actually has.
+ */
 export interface RoomChatMessageView {
   id: UUID
   userId: UUID | null
-  displayName: string | null
-  type: MessageType
+  messageType: MessageType
   replyToMessageId: UUID | null
   text: string
   offsetSeconds: number | null
   createdAt: ISODate
 }
 
+/**
+ * Centrifugo channel bundle returned in the bootstrap payload.
+ *
+ * <p>Backend builds these via {@code ChannelNameFactory.sessionChannel} in
+ * the canonical form {@code tenant.{tenantId}.session.{sessionId}.{kind}}
+ * with {@code kind} in (chat, cta, presence, state). The admin-only
+ * {@code control} kind is NOT exposed through this bundle — moderators
+ * construct it from the session id on their own if needed.
+ */
 export interface RoomChannelBundleView {
-  chatChannel: string
-  timelineChannel: string
-  systemChannel: string
-  presenceChannel: string
+  chat: string
+  cta: string
+  presence: string
+  state: string
 }
 
+/**
+ * Role-derived capability hints for the room UI.
+ *
+ * <p>These are UI-only — every action is re-checked server-side via
+ * {@code @PreAuthorize}. Shape matches {@code RoomCapabilitiesView} on the
+ * backend: {@code canSendChat}, {@code canReplyInChat}, {@code canModerate},
+ * {@code canTriggerCtas}, {@code bypassSlowMode}. Slow-mode window itself
+ * lives on {@link RoomChatSettingsView} so it can be changed per event
+ * without a capability recompute.
+ */
 export interface RoomCapabilitiesView {
-  canSendMessages: boolean
+  canSendChat: boolean
+  canReplyInChat: boolean
   canModerate: boolean
-  canTriggerCta: boolean
-  canBroadcastSystem: boolean
-  isMuted: boolean
-  muteUntil: ISODate | null
-  slowModeSeconds: number
+  canTriggerCtas: boolean
+  bypassSlowMode: boolean
 }
 
 export interface RoomBootstrapResponse {

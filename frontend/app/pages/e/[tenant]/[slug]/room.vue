@@ -19,16 +19,22 @@
  * (event, session, chat history, active CTAs, channel names, capabilities).
  * The bootstrap is the only synchronous data fetch on first paint.
  *
- * <p>Real-time wiring (browser only):
+ * <p>Real-time wiring (browser only). The bootstrap ships four channel names
+ * from {@code RoomChannelBundleView}: {@code chat}, {@code cta},
+ * {@code presence}, {@code state}. Their canonical form is
+ * {@code tenant.{tenantId}.session.{sessionId}.{kind}}.
  * <ul>
- *   <li>Subscribe to {@code channels.chatChannel} → push new
- *       {@code RoomChatMessageView} into the local messages reactive list.</li>
- *   <li>Subscribe to {@code channels.timelineChannel} → react to
- *       {@code CTA_SHOW} / {@code CTA_HIDE} by mutating {@code activeCtas}.</li>
- *   <li>Subscribe to {@code channels.systemChannel} → currently used for
- *       moderation status changes (mute / ban) — flip {@code capabilities}
- *       fields when a {@code ChatStatusChanged} event arrives.</li>
+ *   <li>{@code channels.chat} → push new {@code RoomChatMessageView} into the
+ *       local messages reactive list.</li>
+ *   <li>{@code channels.cta} → react to {@code CTA_SHOW} / {@code CTA_HIDE}
+ *       by mutating {@code activeCtas}.</li>
+ *   <li>{@code channels.state} → moderator-visible capability changes (a
+ *       participant getting chat-banned, slow mode being toggled, etc.). We
+ *       re-read {@code canSendChat} / {@code bypassSlowMode} from the
+ *       publication payload.</li>
  * </ul>
+ * <p>The admin-only {@code control} channel is not in this bundle (§55) —
+ * participants never subscribe to it.
  *
  * <p>The send path goes through {@code api.chat.send(sessionId, ...)} which
  * returns {@code 202 Accepted}. Per CLAUDE.md §9 we do NOT optimistically
@@ -44,7 +50,7 @@ import type {
   RoomBootstrapResponse,
   RoomChatMessageView,
 } from '#shared/api/types'
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 definePageMeta({
   layout: 'event',
@@ -124,15 +130,20 @@ watch(
 // Step 4 — Centrifuge subscriptions (browser only)
 // ---------------------------------------------------------------------------
 type ChatPub  = { message: RoomChatMessageView } | RoomChatMessageView
-type TimelinePub = {
+type CtaPub = {
   type: 'CTA_SHOW' | 'CTA_HIDE'
   cta?: CtaResponse
   ctaId?: string
 }
-type SystemPub = {
-  type: 'ChatStatusChanged'
-  isMuted?: boolean
-  muteUntil?: string | null
+/**
+ * State-channel publications currently carry capability deltas — when a
+ * moderator chat-bans a user, flips slow mode, or adjusts any other
+ * per-participant permission. Shape matches {@code RoomCapabilitiesView} so
+ * we can splice in whatever fields the backend chose to send.
+ */
+type StatePub = {
+  type: 'CapabilitiesChanged'
+  capabilities?: Partial<RoomBootstrapResponse['capabilities']>
 }
 
 const subs: Array<{ unsubscribe: () => void }> = []
@@ -143,7 +154,7 @@ onMounted(() => {
   const { subscribe } = useCentrifuge()
 
   subs.push(
-    subscribe<ChatPub>(channels.chatChannel, {
+    subscribe<ChatPub>(channels.chat, {
       onPublication: (data) => {
         // Backend may wrap the message in `{message: ...}` or send it bare —
         // accept both shapes so a future schema tweak doesn't break the UI.
@@ -155,7 +166,7 @@ onMounted(() => {
   )
 
   subs.push(
-    subscribe<TimelinePub>(channels.timelineChannel, {
+    subscribe<CtaPub>(channels.cta, {
       onPublication: (evt) => {
         if (evt.type === 'CTA_SHOW' && evt.cta) {
           // Replace if present (priority/wording may have changed), else add.
@@ -173,14 +184,10 @@ onMounted(() => {
   )
 
   subs.push(
-    subscribe<SystemPub>(channels.systemChannel, {
+    subscribe<StatePub>(channels.state, {
       onPublication: (evt) => {
-        if (evt.type === 'ChatStatusChanged' && capabilities.value) {
-          capabilities.value = {
-            ...capabilities.value,
-            isMuted:   evt.isMuted ?? capabilities.value.isMuted,
-            muteUntil: evt.muteUntil ?? capabilities.value.muteUntil,
-          }
+        if (evt.type === 'CapabilitiesChanged' && evt.capabilities && capabilities.value) {
+          capabilities.value = { ...capabilities.value, ...evt.capabilities }
         }
       },
     }),
@@ -272,6 +279,7 @@ const mobileTab = ref<'chat' | 'cta'>('chat')
             <RoomChat
               :messages="messages"
               :capabilities="capabilities"
+              :chat-settings="bootstrap.chatSettings"
               :on-send="sendMessage"
             />
           </div>
@@ -306,6 +314,7 @@ const mobileTab = ref<'chat' | 'cta'>('chat')
               v-if="mobileTab === 'chat'"
               :messages="messages"
               :capabilities="capabilities"
+              :chat-settings="bootstrap.chatSettings"
               :on-send="sendMessage"
             />
             <RoomCtaList
