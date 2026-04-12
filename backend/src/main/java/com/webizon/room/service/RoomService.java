@@ -3,6 +3,7 @@ package com.webizon.room.service;
 import com.webizon.analytics.repo.SessionAttendanceRepository;
 import com.webizon.analytics.service.AttendanceTracker;
 import com.webizon.chat.model.ChatMessage;
+import com.webizon.chat.model.ChatMode;
 import com.webizon.chat.model.EventChatSettings;
 import com.webizon.chat.repo.ChatMessageRepository;
 import com.webizon.chat.service.ChatSettingsService;
@@ -312,9 +313,18 @@ public class RoomService {
         boolean isModerator = role != null && MODERATOR_ROLES.contains(role);
         boolean canTriggerCtas = role != null && CTA_TRIGGER_ROLES.contains(role);
         boolean bypassSlowMode = isModerator || settings.getSlowModeSeconds() == 0;
+
+        // Chat mode determines who can send messages
+        boolean canSendChat;
+        switch (settings.getChatMode()) {
+            case DISABLED -> canSendChat = false;
+            case ADMINS_ONLY -> canSendChat = isModerator;
+            default -> canSendChat = true; // EVERYONE
+        }
+
         return new RoomCapabilitiesView(
-                true,
-                true,
+                canSendChat,
+                canSendChat, // canReplyInChat follows canSendChat
                 isModerator,
                 canTriggerCtas,
                 bypassSlowMode

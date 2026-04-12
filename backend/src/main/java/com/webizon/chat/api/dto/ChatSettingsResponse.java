@@ -13,7 +13,8 @@ public record ChatSettingsResponse(
         String welcomeMessage,
         boolean premoderationEnabled,
         boolean profanityFilterEnabled,
-        boolean antiSpamEnabled
+        boolean antiSpamEnabled,
+        String chatMode
 ) {
 
     public static ChatSettingsResponse from(EventChatSettings s) {
@@ -26,7 +27,8 @@ public record ChatSettingsResponse(
                 s.getWelcomeMessage(),
                 s.isPremoderationEnabled(),
                 s.isProfanityFilterEnabled(),
-                s.isAntiSpamEnabled()
+                s.isAntiSpamEnabled(),
+                s.getChatMode().name()
         );
     }
 }

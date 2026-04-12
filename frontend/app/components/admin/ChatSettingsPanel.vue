@@ -57,6 +57,7 @@ async function save() {
       premoderationEnabled: settings.value.premoderationEnabled,
       profanityFilterEnabled: settings.value.profanityFilterEnabled,
       antiSpamEnabled: settings.value.antiSpamEnabled,
+      chatMode: settings.value.chatMode,
     })
     toast.success('Баптаулар сақталды')
   } catch (err) {
@@ -78,6 +79,12 @@ const SLOW_MODE_OPTIONS = [
   { value: 20, label: '20 секунд' },
   { value: 30, label: '30 секунд' },
   { value: 60, label: '1 минут' },
+]
+
+const CHAT_MODE_OPTIONS = [
+  { value: 'EVERYONE', label: 'Барлығы жаза алады', desc: 'Аутентификацияланған қолданушылар чатта жаза алады' },
+  { value: 'ADMINS_ONLY', label: 'Тек админдер', desc: 'Тек модераторлар мен админдер жаза алады' },
+  { value: 'DISABLED', label: 'Чат өшірулі', desc: 'Ешкім жаза алмайды, тек оқу режімі' },
 ]
 </script>
 
@@ -109,6 +116,35 @@ const SLOW_MODE_OPTIONS = [
 
     <!-- Settings form -->
     <template v-else-if="settings">
+      <!-- Chat mode section -->
+      <UiCard>
+        <div class="mb-4 flex items-center gap-2">
+          <MessageSquare class="h-4 w-4 text-slate-500" />
+          <h3 class="text-sm font-semibold text-slate-900">Чат режімі</h3>
+        </div>
+        <div class="space-y-2">
+          <label
+            v-for="opt in CHAT_MODE_OPTIONS"
+            :key="opt.value"
+            class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors"
+            :class="settings.chatMode === opt.value
+              ? 'border-brand-300 bg-brand-50/50'
+              : 'border-slate-200 hover:bg-slate-50'"
+          >
+            <input
+              v-model="settings.chatMode"
+              type="radio"
+              :value="opt.value"
+              class="mt-0.5 h-4 w-4 border-slate-300 text-brand-600 focus:ring-brand-500"
+            />
+            <div>
+              <p class="text-sm font-medium text-slate-900">{{ opt.label }}</p>
+              <p class="text-xs text-slate-500">{{ opt.desc }}</p>
+            </div>
+          </label>
+        </div>
+      </UiCard>
+
       <!-- Moderation section -->
       <UiCard>
         <div class="mb-4 flex items-center gap-2">

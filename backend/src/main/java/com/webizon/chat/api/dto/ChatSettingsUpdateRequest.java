@@ -19,5 +19,6 @@ public record ChatSettingsUpdateRequest(
         @Size(max = 500) String welcomeMessage,
         Boolean premoderationEnabled,
         Boolean profanityFilterEnabled,
-        Boolean antiSpamEnabled
+        Boolean antiSpamEnabled,
+        String chatMode
 ) {}

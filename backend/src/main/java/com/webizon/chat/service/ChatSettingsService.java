@@ -1,5 +1,6 @@
 package com.webizon.chat.service;
 
+import com.webizon.chat.model.ChatMode;
 import com.webizon.chat.model.EventChatSettings;
 import com.webizon.chat.repo.EventChatSettingsRepository;
 import com.webizon.events.repo.EventRepository;
@@ -67,6 +68,13 @@ public class ChatSettingsService {
         if (patch.premoderationEnabled() != null) settings.setPremoderationEnabled(patch.premoderationEnabled());
         if (patch.profanityFilterEnabled() != null) settings.setProfanityFilterEnabled(patch.profanityFilterEnabled());
         if (patch.antiSpamEnabled() != null) settings.setAntiSpamEnabled(patch.antiSpamEnabled());
+        if (patch.chatMode() != null) {
+            try {
+                settings.setChatMode(ChatMode.valueOf(patch.chatMode()));
+            } catch (IllegalArgumentException ignored) {
+                // invalid value — ignore
+            }
+        }
         return settings;
     }
 
@@ -83,6 +91,7 @@ public class ChatSettingsService {
             String welcomeMessage,
             Boolean premoderationEnabled,
             Boolean profanityFilterEnabled,
-            Boolean antiSpamEnabled
+            Boolean antiSpamEnabled,
+            String chatMode
     ) {}
 }

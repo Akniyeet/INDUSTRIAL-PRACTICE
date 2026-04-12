@@ -51,7 +51,8 @@ public class ChatSettingsController {
                 request.welcomeMessage(),
                 request.premoderationEnabled(),
                 request.profanityFilterEnabled(),
-                request.antiSpamEnabled()
+                request.antiSpamEnabled(),
+                request.chatMode()
         );
         return ChatSettingsResponse.from(chatSettingsService.update(eventId, patch));
     }

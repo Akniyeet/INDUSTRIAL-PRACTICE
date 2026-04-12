@@ -114,6 +114,8 @@ const messages = ref<RoomChatMessageView[]>([])
 const activeCtas = ref<CtaResponse[]>([])
 /** Capabilities — copied locally so moderation events can flip them. */
 const capabilities = shallowRef<RoomBootstrapResponse['capabilities'] | null>(null)
+/** Private warnings from moderators — shown only to the target user. */
+const warnings = ref<Array<{ reason: string; receivedAt: number }>>([])
 
 watch(
   bootstrap,
@@ -140,10 +142,15 @@ type CtaPub = {
  * moderator chat-bans a user, flips slow mode, or adjusts any other
  * per-participant permission. Shape matches {@code RoomCapabilitiesView} so
  * we can splice in whatever fields the backend chose to send.
+ *
+ * Also carries WARNING events targeted at the current user so they can
+ * be displayed privately as per CLAUDE.md §18.
  */
 type StatePub = {
-  type: 'CapabilitiesChanged'
+  type: 'CapabilitiesChanged' | 'WARNING'
   capabilities?: Partial<RoomBootstrapResponse['capabilities']>
+  reason?: string
+  targetUserId?: string
 }
 
 const subs: Array<{ unsubscribe: () => void }> = []
@@ -189,6 +196,14 @@ onMounted(() => {
         if (evt.type === 'CapabilitiesChanged' && evt.capabilities && capabilities.value) {
           capabilities.value = { ...capabilities.value, ...evt.capabilities }
         }
+        // Private warning targeted at the current user
+        if (evt.type === 'WARNING' && evt.reason !== undefined) {
+          const auth = useAuthStore()
+          // Show only if targeted at current user (or broadcast to all)
+          if (!evt.targetUserId || evt.targetUserId === auth.user?.id) {
+            warnings.value.push({ reason: evt.reason || '', receivedAt: Date.now() })
+          }
+        }
       },
     }),
   )
@@ -203,9 +218,9 @@ onBeforeUnmount(() => {
 // ---------------------------------------------------------------------------
 // Step 5 — send handler
 // ---------------------------------------------------------------------------
-async function sendMessage(text: string) {
+async function sendMessage(text: string, replyToMessageId?: string) {
   if (!sessionId.value) return
-  await api.chat.send(sessionId.value, { text })
+  await api.chat.send(sessionId.value, { text, replyToMessageId })
   // Per §9 we do NOT optimistically append. The Centrifugo broadcast lands
   // a few hundred ms later and pushes the row into `messages`.
 }
@@ -281,6 +296,7 @@ const mobileTab = ref<'chat' | 'cta'>('chat')
               :capabilities="capabilities"
               :chat-settings="bootstrap.chatSettings"
               :on-send="sendMessage"
+              :warnings="warnings"
             />
           </div>
         </div>
@@ -316,6 +332,7 @@ const mobileTab = ref<'chat' | 'cta'>('chat')
               :capabilities="capabilities"
               :chat-settings="bootstrap.chatSettings"
               :on-send="sendMessage"
+              :warnings="warnings"
             />
             <RoomCtaList
               v-else

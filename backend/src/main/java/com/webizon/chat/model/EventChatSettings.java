@@ -3,6 +3,8 @@ package com.webizon.chat.model;
 import com.webizon.tenancy.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
@@ -65,4 +67,8 @@ public class EventChatSettings extends TenantAwareEntity {
 
     @Column(name = "anti_spam_enabled", nullable = false)
     private boolean antiSpamEnabled = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "chat_mode", nullable = false, length = 20)
+    private ChatMode chatMode = ChatMode.EVERYONE;
 }

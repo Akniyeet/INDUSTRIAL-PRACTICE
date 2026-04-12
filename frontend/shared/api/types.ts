@@ -253,6 +253,8 @@ export interface SendMessageRequest {
   replyToMessageId?: UUID
 }
 
+export type ChatMode = 'EVERYONE' | 'ADMINS_ONLY' | 'DISABLED'
+
 export interface ChatSettingsResponse {
   eventId: UUID
   allowLinks: boolean
@@ -263,6 +265,7 @@ export interface ChatSettingsResponse {
   premoderationEnabled: boolean
   profanityFilterEnabled: boolean
   antiSpamEnabled: boolean
+  chatMode: ChatMode
 }
 
 // ---------------------------------------------------------------------------
