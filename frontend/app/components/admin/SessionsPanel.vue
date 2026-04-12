@@ -36,6 +36,7 @@ import {
   Ban,
   ExternalLink,
   AlertTriangle,
+  Download,
 } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -247,6 +248,16 @@ function isActing(id: UUID): boolean {
   return actingSessionId.value === id
 }
 
+// ---------------------------------------------------------------------------
+// Export
+// ---------------------------------------------------------------------------
+
+function downloadExport(sessionId: UUID) {
+  const config = useRuntimeConfig()
+  const base = config.public.apiBase || '/api/backend'
+  window.open(`${base}/v1/sessions/${sessionId}/export`, '_blank')
+}
+
 const totalCount = computed(() => sessions.value.length)
 </script>
 
@@ -433,10 +444,16 @@ const totalCount = computed(() => sessions.value.length)
                   · {{ s.type }} · {{ formatDuration(s.plannedDurationSeconds) }}
                 </span>
               </div>
-              <UiButton variant="ghost" size="sm" :to="`/admin/sessions/${s.id}`">
-                <ExternalLink class="h-3.5 w-3.5" />
-                Шолу
-              </UiButton>
+              <div class="flex items-center gap-1.5">
+                <UiButton variant="ghost" size="sm" @click="downloadExport(s.id)">
+                  <Download class="h-3.5 w-3.5" />
+                  Excel
+                </UiButton>
+                <UiButton variant="ghost" size="sm" :to="`/admin/sessions/${s.id}`">
+                  <ExternalLink class="h-3.5 w-3.5" />
+                  Шолу
+                </UiButton>
+              </div>
             </li>
           </ul>
         </UiCard>

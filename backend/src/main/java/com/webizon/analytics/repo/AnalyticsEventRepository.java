@@ -70,4 +70,15 @@ public interface AnalyticsEventRepository extends JpaRepository<AnalyticsEvent, 
     long countByCtaAndEventType(@Param("sessionId") UUID sessionId,
                                  @Param("eventType") String eventType,
                                  @Param("ctaId") String ctaId);
+
+    /** Profiles that triggered a specific event type in a session — used by session export. */
+    @Query("""
+           select distinct a.profileId from AnalyticsEvent a
+           where a.sessionId = :sessionId
+             and a.eventType = :eventType
+             and a.profileId is not null
+           """)
+    List<UUID> findDistinctProfileIdsBySessionIdAndEventType(
+            @Param("sessionId") UUID sessionId,
+            @Param("eventType") AnalyticsEventType eventType);
 }

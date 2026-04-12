@@ -47,6 +47,9 @@ public interface SessionAttendanceRepository extends JpaRepository<SessionAttend
 
     long countBySessionId(UUID sessionId);
 
+    /** All attendance rows for a session, ordered by join time — used by session export. */
+    List<SessionAttendance> findAllBySessionIdOrderByFirstJoinedAtAsc(UUID sessionId);
+
     /**
      * Users whose total watch time crossed a threshold — feeds the
      * {@code WATCHED_LONG} lead signal and the retention dashboard.

@@ -37,6 +37,7 @@ import {
   Users,
   AlertTriangle,
   RefreshCw,
+  Download,
 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
@@ -293,6 +294,12 @@ async function endLive() {
   }
 }
 
+function downloadExport() {
+  const config = useRuntimeConfig()
+  const base = config.public.apiBase || '/api/backend'
+  window.open(`${base}/v1/sessions/${sessionId.value}/export`, '_blank')
+}
+
 // Permission guard — we read it lazily from bootstrap.
 const canModerate = computed(() => bootstrap.value?.capabilities.canModerate ?? false)
 </script>
@@ -360,6 +367,14 @@ const canModerate = computed(() => bootstrap.value?.capabilities.canModerate ?? 
           >
             <Square class="h-4 w-4" />
             Эфирді аяқтау
+          </UiButton>
+          <UiButton
+            variant="outline"
+            size="md"
+            @click="downloadExport()"
+          >
+            <Download class="h-4 w-4" />
+            Excel
           </UiButton>
         </template>
       </PageHeader>

@@ -85,4 +85,16 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
      * anti-flood policies and engagement analytics.
      */
     long countBySessionIdAndUserIdAndDeletedFalse(UUID sessionId, UUID userId);
+
+    /**
+     * Full chat transcript for session export — includes all non-deleted
+     * messages ordered chronologically. Used by the XLSX export endpoint.
+     */
+    @Query("""
+           select m from ChatMessage m
+           where m.sessionId = :sessionId
+             and m.deleted = false
+           order by m.createdAt asc
+           """)
+    List<ChatMessage> findExportTranscript(@Param("sessionId") UUID sessionId);
 }
