@@ -148,8 +148,8 @@ function formatStart(s: PublicSessionView): string {
             <UiCountdown :target="data.nextSession.startTime" @finished="refresh()" />
           </div>
           <div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-            <UiButton variant="primary" size="lg" :to="joinHref()">
-              Қатысуды растау
+            <UiButton variant="primary" size="lg" :to="joinHref(`/e/${tenantSlug}/${eventSlug}/waiting`)">
+              Күту бөлмесіне кіру
             </UiButton>
             <p class="text-xs text-slate-400">
               Эфир басталғанда бөлме автоматты түрде ашылады.
