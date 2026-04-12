@@ -5,6 +5,7 @@ import { ChatApi } from './endpoints/chat'
 import { CtaApi } from './endpoints/cta'
 import { EventsApi } from './endpoints/events'
 import { HistoricalChatApi } from './endpoints/historicalChat'
+import { InvitesApi } from './endpoints/invites'
 import { ModerationApi } from './endpoints/moderation'
 import { PublicEventsApi } from './endpoints/publicEvents'
 import { RealtimeApi } from './endpoints/realtime'
@@ -39,6 +40,7 @@ export interface Api {
   chat:            ChatApi
   cta:             CtaApi
   historicalChat:  HistoricalChatApi
+  invites:         InvitesApi
   moderation:      ModerationApi
   realtime:        RealtimeApi
   timeline:        TimelineApi
@@ -56,6 +58,7 @@ export function createApi(opts: ApiClientOptions): Api {
     chat:           new ChatApi(client),
     cta:            new CtaApi(client),
     historicalChat: new HistoricalChatApi(client),
+    invites:        new InvitesApi(client),
     moderation:     new ModerationApi(client),
     realtime:       new RealtimeApi(client),
     timeline:       new TimelineApi(client),

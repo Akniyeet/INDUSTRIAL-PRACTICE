@@ -78,6 +78,39 @@ export interface BootstrapResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Invites
+// ---------------------------------------------------------------------------
+
+export type InviteStatus = 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED'
+
+export interface InviteResponse {
+  id: UUID
+  email: string
+  role: MembershipRole
+  status: InviteStatus
+  invitedByUserId: UUID
+  acceptedByUserId: UUID | null
+  revokedByUserId: UUID | null
+  expiresAt: ISODate
+  acceptedAt: ISODate | null
+  revokedAt: ISODate | null
+  message: string | null
+  createdAt: ISODate
+  updatedAt: ISODate
+}
+
+export interface InviteCreateRequest {
+  email: string
+  role: MembershipRole
+  message?: string
+}
+
+export interface InviteCreateResponse {
+  invite: InviteResponse
+  acceptUrl: string
+}
+
+// ---------------------------------------------------------------------------
 // Events
 // ---------------------------------------------------------------------------
 
