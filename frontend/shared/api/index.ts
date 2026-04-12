@@ -10,6 +10,7 @@ import { PublicEventsApi } from './endpoints/publicEvents'
 import { RealtimeApi } from './endpoints/realtime'
 import { RoomApi } from './endpoints/room'
 import { SessionsApi } from './endpoints/sessions'
+import { TimelineApi } from './endpoints/timeline'
 
 export * from './types'
 export { ApiClient, isApiError } from './client'
@@ -40,6 +41,7 @@ export interface Api {
   historicalChat:  HistoricalChatApi
   moderation:      ModerationApi
   realtime:        RealtimeApi
+  timeline:        TimelineApi
 }
 
 export function createApi(opts: ApiClientOptions): Api {
@@ -56,5 +58,6 @@ export function createApi(opts: ApiClientOptions): Api {
     historicalChat: new HistoricalChatApi(client),
     moderation:     new ModerationApi(client),
     realtime:       new RealtimeApi(client),
+    timeline:       new TimelineApi(client),
   }
 }

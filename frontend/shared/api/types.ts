@@ -365,6 +365,42 @@ export interface SessionReportResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Timeline actions
+// ---------------------------------------------------------------------------
+
+export type TimelineActionType =
+  | 'CTA_SHOW'
+  | 'CTA_HIDE'
+  | 'ADMIN_MESSAGE_SHOW'
+  | 'SYSTEM_MESSAGE_SHOW'
+  | 'HISTORICAL_CHAT_REPLAY'
+  | 'ROOM_STATE_CHANGE'
+  | 'FUTURE_RESERVED'
+
+export interface TimelineActionResponse {
+  id: UUID
+  eventId: UUID
+  sourceSessionId: UUID
+  offsetSeconds: number
+  actionType: TimelineActionType
+  payload: Record<string, unknown>
+  active: boolean
+  createdAt: ISODate
+  updatedAt: ISODate
+}
+
+export interface TimelineActionCreateRequest {
+  offsetSeconds: number
+  actionType: TimelineActionType
+  payload: Record<string, unknown>
+}
+
+export interface TimelineActionUpdateRequest {
+  offsetSeconds?: number
+  payload?: Record<string, unknown>
+}
+
+// ---------------------------------------------------------------------------
 // Historical chat review
 // ---------------------------------------------------------------------------
 
