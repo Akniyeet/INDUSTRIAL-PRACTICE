@@ -1,6 +1,7 @@
 import { ApiClient, type ApiClientOptions } from './client'
 import { AnalyticsApi } from './endpoints/analytics'
 import { AuthApi } from './endpoints/auth'
+import { InfrastructureApi } from './endpoints/infrastructure'
 import { ChatApi } from './endpoints/chat'
 import { CtaApi } from './endpoints/cta'
 import { EventsApi } from './endpoints/events'
@@ -11,6 +12,8 @@ import { PublicEventsApi } from './endpoints/publicEvents'
 import { RealtimeApi } from './endpoints/realtime'
 import { RoomApi } from './endpoints/room'
 import { SessionsApi } from './endpoints/sessions'
+import { StorageApi } from './endpoints/storage'
+import { TenantsApi } from './endpoints/tenants'
 import { TimelineApi } from './endpoints/timeline'
 
 export * from './types'
@@ -32,6 +35,7 @@ export { ApiClient, isApiError } from './client'
  */
 export interface Api {
   analytics:       AnalyticsApi
+  infrastructure:  InfrastructureApi
   auth:            AuthApi
   events:          EventsApi
   sessions:        SessionsApi
@@ -43,6 +47,8 @@ export interface Api {
   invites:         InvitesApi
   moderation:      ModerationApi
   realtime:        RealtimeApi
+  storage:         StorageApi
+  tenants:         TenantsApi
   timeline:        TimelineApi
 }
 
@@ -50,6 +56,7 @@ export function createApi(opts: ApiClientOptions): Api {
   const client = new ApiClient(opts)
   return {
     analytics:      new AnalyticsApi(client),
+    infrastructure: new InfrastructureApi(client),
     auth:           new AuthApi(client),
     events:         new EventsApi(client),
     sessions:       new SessionsApi(client),
@@ -61,6 +68,8 @@ export function createApi(opts: ApiClientOptions): Api {
     invites:        new InvitesApi(client),
     moderation:     new ModerationApi(client),
     realtime:       new RealtimeApi(client),
+    storage:        new StorageApi(client),
+    tenants:        new TenantsApi(client),
     timeline:       new TimelineApi(client),
   }
 }

@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "nuxt dev --host 0.0.0.0 --port 3000",
+    "dev:preview": "nuxt dev --host 0.0.0.0 --port 3003",
     "build": "nuxt build",
     "start": "node .output/server/index.mjs",
     "preview": "nuxt preview",

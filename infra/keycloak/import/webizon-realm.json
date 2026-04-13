@@ -65,10 +65,13 @@
       "secret": "dev_client_secret",
       "redirectUris": [
         "http://localhost:3000/*",
-        "http://localhost:3000/auth/callback"
+        "http://localhost:3000/auth/callback",
+        "http://localhost:3001/*",
+        "http://localhost:3001/auth/callback"
       ],
       "webOrigins": [
-        "http://localhost:3000"
+        "http://localhost:3000",
+        "http://localhost:3001"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
@@ -118,6 +121,49 @@
           }
         }
       ]
+    }
+  ],
+
+  "identityProviders": [
+    {
+      "alias": "google",
+      "displayName": "Google",
+      "providerId": "google",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${env.GOOGLE_CLIENT_ID:CONFIGURE_ME}",
+        "clientSecret": "${env.GOOGLE_CLIENT_SECRET:CONFIGURE_ME}",
+        "defaultScope": "openid profile email",
+        "syncMode": "IMPORT",
+        "useJwksUrl": "true"
+      }
+    }
+  ],
+
+  "identityProviderMappers": [
+    {
+      "name": "google-email-mapper",
+      "identityProviderAlias": "google",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "user.attribute": "email",
+        "claim": "email"
+      }
+    },
+    {
+      "name": "google-name-mapper",
+      "identityProviderAlias": "google",
+      "identityProviderMapper": "oidc-full-name-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT"
+      }
     }
   ],
 

@@ -48,7 +48,7 @@ async function loadReport() {
     report.value = await api.analytics.report(session.value.eventId, sessionId.value)
   } catch (err) {
     const apiErr = err as { detail?: string; title?: string }
-    reportError.value = apiErr.detail ?? apiErr.title ?? 'Есепті жүктеу қатесі'
+    reportError.value = apiErr.detail ?? apiErr.title ?? 'Ошибка загрузки отчёта'
   } finally {
     reportLoading.value = false
   }
@@ -59,7 +59,7 @@ onMounted(loadReport)
 useHead(() => ({
   title: session.value
     ? `Аналитика — ${format(new Date(session.value.startTime), 'dd.MM.yyyy HH:mm')}`
-    : 'Сессия аналитикасы',
+    : 'Аналитика сессии',
 }))
 
 function downloadExport() {
@@ -77,7 +77,7 @@ function formatDuration(seconds: number) {
   if (m < 60) return `${m} мин`
   const h = Math.floor(m / 60)
   const rem = m % 60
-  return rem === 0 ? `${h} сағ` : `${h} сағ ${rem} мин`
+  return rem === 0 ? `${h} ч` : `${h} ч ${rem} мин`
 }
 </script>
 
@@ -86,11 +86,11 @@ function formatDuration(seconds: number) {
     <!-- Session load error -->
     <UiCard v-if="sessionError" class="border-danger-200">
       <div class="py-8 text-center">
-        <h2 class="text-lg font-semibold text-slate-900">Сессия табылмады</h2>
-        <p class="mt-2 text-sm text-slate-500">Бұл сессия жоқ немесе сізде кіру құқығы жоқ.</p>
+        <h2 class="text-lg font-semibold text-slate-900">Сессия не найдена</h2>
+        <p class="mt-2 text-sm text-slate-500">Эта сессия не существует или у вас нет прав доступа.</p>
         <NuxtLink to="/admin" class="btn-ghost mt-4 inline-flex">
           <ArrowLeft class="h-4 w-4" />
-          Артқа
+          Назад
         </NuxtLink>
       </div>
     </UiCard>
@@ -104,7 +104,7 @@ function formatDuration(seconds: number) {
         <template #actions>
           <UiButton variant="outline" size="md" :loading="reportLoading" @click="loadReport">
             <RefreshCw class="h-4 w-4" />
-            Жаңарту
+            Обновить
           </UiButton>
           <UiButton variant="outline" size="md" @click="downloadExport">
             <Download class="h-4 w-4" />
@@ -112,7 +112,7 @@ function formatDuration(seconds: number) {
           </UiButton>
           <UiButton variant="ghost" size="md" :to="`/admin/events/${session.eventId}`">
             <ArrowLeft class="h-4 w-4" />
-            Оқиғаға оралу
+            К мероприятию
           </UiButton>
         </template>
       </PageHeader>
@@ -121,7 +121,7 @@ function formatDuration(seconds: number) {
       <UiCard v-if="reportError" class="mt-5 border-danger-200 bg-danger-50/60">
         <p class="text-sm text-danger-700">{{ reportError }}</p>
         <template #footer>
-          <UiButton variant="outline" size="sm" @click="loadReport">Қайта көру</UiButton>
+          <UiButton variant="outline" size="sm" @click="loadReport">Повторить</UiButton>
         </template>
       </UiCard>
 
@@ -152,8 +152,8 @@ function formatDuration(seconds: number) {
       <!-- No report yet -->
       <UiEmpty
         v-else
-        title="Аналитика жоқ"
-        description="Сессия аяқталғаннан кейін деректер осы жерде көрсетіледі."
+        title="Аналитика отсутствует"
+        description="Данные появятся здесь после завершения сессии."
         class="mt-5"
       >
         <template #icon><BarChart3 class="h-5 w-5" /></template>

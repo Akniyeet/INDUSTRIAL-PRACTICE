@@ -71,4 +71,14 @@ public class EventChatSettings extends TenantAwareEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "chat_mode", nullable = false, length = 20)
     private ChatMode chatMode = ChatMode.EVERYONE;
+
+    @Column(name = "chat_enabled", nullable = false)
+    private boolean chatEnabled = true;
+
+    @Column(name = "block_phone_numbers", nullable = false)
+    private boolean blockPhoneNumbers = true;
+
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.ARRAY)
+    @Column(name = "forbidden_words", nullable = false, columnDefinition = "text[]")
+    private String[] forbiddenWords = {};
 }

@@ -62,4 +62,8 @@ public class Event extends TenantAwareEntity {
 
     @Column(name = "created_by_user_id", nullable = false, updatable = false, columnDefinition = "UUID")
     private UUID createdByUserId;
+
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "landing_config", nullable = false, columnDefinition = "jsonb")
+    private java.util.Map<String, Object> landingConfig = new java.util.HashMap<>();
 }

@@ -36,7 +36,7 @@ async function load() {
   try {
     settings.value = await api.chat.getSettings(props.eventId)
   } catch {
-    toast.error('Чат баптауларын жүктеу қатесі')
+    toast.error('Ошибка загрузки настроек чата')
   } finally {
     loading.value = false
   }
@@ -59,10 +59,10 @@ async function save() {
       antiSpamEnabled: settings.value.antiSpamEnabled,
       chatMode: settings.value.chatMode,
     })
-    toast.success('Баптаулар сақталды')
+    toast.success('Настройки сохранены')
   } catch (err) {
     const apiErr = err as { detail?: string; title?: string }
-    toast.error(apiErr.detail ?? 'Сақтау қатесі')
+    toast.error(apiErr.detail ?? 'Ошибка сохранения')
   } finally {
     saving.value = false
   }
@@ -73,18 +73,18 @@ async function save() {
 // ---------------------------------------------------------------------------
 
 const SLOW_MODE_OPTIONS = [
-  { value: 0, label: 'Өшірулі' },
+  { value: 0, label: 'Выключено' },
   { value: 5, label: '5 секунд' },
   { value: 10, label: '10 секунд' },
   { value: 20, label: '20 секунд' },
   { value: 30, label: '30 секунд' },
-  { value: 60, label: '1 минут' },
+  { value: 60, label: '1 минута' },
 ]
 
 const CHAT_MODE_OPTIONS = [
-  { value: 'EVERYONE', label: 'Барлығы жаза алады', desc: 'Аутентификацияланған қолданушылар чатта жаза алады' },
-  { value: 'ADMINS_ONLY', label: 'Тек админдер', desc: 'Тек модераторлар мен админдер жаза алады' },
-  { value: 'DISABLED', label: 'Чат өшірулі', desc: 'Ешкім жаза алмайды, тек оқу режімі' },
+  { value: 'EVERYONE', label: 'Все могут писать', desc: 'Аутентифицированные пользователи могут писать в чат' },
+  { value: 'ADMINS_ONLY', label: 'Только админы', desc: 'Только модераторы и админы могут писать' },
+  { value: 'DISABLED', label: 'Чат выключен', desc: 'Никто не может писать, режим только для чтения' },
 ]
 </script>
 
@@ -93,9 +93,9 @@ const CHAT_MODE_OPTIONS = [
     <!-- Header -->
     <div class="flex items-center justify-between gap-3">
       <div>
-        <h2 class="text-lg font-semibold text-slate-900">Чат баптаулары</h2>
+        <h2 class="text-lg font-semibold text-slate-900">Настройки чата</h2>
         <p class="mt-0.5 text-sm text-slate-500">
-          Ивент деңгейіндегі чат ережелері. Барлық сессияларға қолданылады.
+          Правила чата на уровне мероприятия. Применяются ко всем сессиям.
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -104,7 +104,7 @@ const CHAT_MODE_OPTIONS = [
         </UiButton>
         <UiButton variant="primary" size="md" :loading="saving" :disabled="!settings" @click="save">
           <Save class="h-4 w-4" />
-          Сақтау
+          Сохранить
         </UiButton>
       </div>
     </div>
@@ -120,7 +120,7 @@ const CHAT_MODE_OPTIONS = [
       <UiCard>
         <div class="mb-4 flex items-center gap-2">
           <MessageSquare class="h-4 w-4 text-slate-500" />
-          <h3 class="text-sm font-semibold text-slate-900">Чат режімі</h3>
+          <h3 class="text-sm font-semibold text-slate-900">Режим чата</h3>
         </div>
         <div class="space-y-2">
           <label
@@ -155,7 +155,7 @@ const CHAT_MODE_OPTIONS = [
           <label class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium text-slate-700">Премодерация</p>
-              <p class="text-xs text-slate-500">Хабарламалар модератор мақұлдағанға дейін көрінбейді</p>
+              <p class="text-xs text-slate-500">Сообщения не видны до одобрения модератором</p>
             </div>
             <input
               v-model="settings.premoderationEnabled"
@@ -165,8 +165,8 @@ const CHAT_MODE_OPTIONS = [
           </label>
           <label class="flex items-center justify-between">
             <div>
-              <p class="text-sm font-medium text-slate-700">Мат сүзгісі</p>
-              <p class="text-xs text-slate-500">Тыйым салынған сөздерді автоматты түрде сүзу</p>
+              <p class="text-sm font-medium text-slate-700">Фильтр нецензурной лексики</p>
+              <p class="text-xs text-slate-500">Автоматическая фильтрация запрещённых слов</p>
             </div>
             <input
               v-model="settings.profanityFilterEnabled"
@@ -177,7 +177,7 @@ const CHAT_MODE_OPTIONS = [
           <label class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium text-slate-700">Анти-спам</p>
-              <p class="text-xs text-slate-500">Қайталанатын хабарламалар мен флудты анықтау</p>
+              <p class="text-xs text-slate-500">Обнаружение повторяющихся сообщений и флуда</p>
             </div>
             <input
               v-model="settings.antiSpamEnabled"
@@ -192,24 +192,24 @@ const CHAT_MODE_OPTIONS = [
       <UiCard>
         <div class="mb-4 flex items-center gap-2">
           <Clock class="h-4 w-4 text-slate-500" />
-          <h3 class="text-sm font-semibold text-slate-900">Жіберу шектеулері</h3>
+          <h3 class="text-sm font-semibold text-slate-900">Ограничения отправки</h3>
         </div>
         <div class="space-y-4">
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-700">Баяу режим (slow mode)</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-700">Медленный режим (slow mode)</label>
             <UiSelect v-model.number="settings.slowModeSeconds">
               <option v-for="opt in SLOW_MODE_OPTIONS" :key="opt.value" :value="opt.value">
                 {{ opt.label }}
               </option>
             </UiSelect>
             <p class="mt-1 text-xs text-slate-500">
-              Қолданушылар хабарлама арасында осынша уақыт күтуі керек. Модераторлар мен админдер шектелмейді.
+              Пользователи должны ждать указанное время между сообщениями. Модераторы и админы не ограничены.
             </p>
           </div>
           <label class="flex items-center justify-between">
             <div>
-              <p class="text-sm font-medium text-slate-700">Сілтемелерге рұқсат</p>
-              <p class="text-xs text-slate-500">Қолданушылар чатта URL жібере алады</p>
+              <p class="text-sm font-medium text-slate-700">Разрешить ссылки</p>
+              <p class="text-xs text-slate-500">Пользователи могут отправлять URL в чате</p>
             </div>
             <input
               v-model="settings.allowLinks"
@@ -224,13 +224,13 @@ const CHAT_MODE_OPTIONS = [
       <UiCard>
         <div class="mb-4 flex items-center gap-2">
           <Eye class="h-4 w-4 text-slate-500" />
-          <h3 class="text-sm font-semibold text-slate-900">Көрсету</h3>
+          <h3 class="text-sm font-semibold text-slate-900">Отображение</h3>
         </div>
         <div class="space-y-4">
           <label class="flex items-center justify-between">
             <div>
-              <p class="text-sm font-medium text-slate-700">Қатысушылар саны</p>
-              <p class="text-xs text-slate-500">Бөлмедегі белсенді қатысушылар санын көрсету</p>
+              <p class="text-sm font-medium text-slate-700">Количество участников</p>
+              <p class="text-xs text-slate-500">Показывать количество активных участников в комнате</p>
             </div>
             <input
               v-model="settings.showParticipantCount"
@@ -240,8 +240,8 @@ const CHAT_MODE_OPTIONS = [
           </label>
           <label class="flex items-center justify-between">
             <div>
-              <p class="text-sm font-medium text-slate-700">Қатысушылар атаулары</p>
-              <p class="text-xs text-slate-500">Чатта қолданушы атауларын көрсету</p>
+              <p class="text-sm font-medium text-slate-700">Имена участников</p>
+              <p class="text-xs text-slate-500">Показывать имена пользователей в чате</p>
             </div>
             <input
               v-model="settings.showParticipantNames"
@@ -256,16 +256,16 @@ const CHAT_MODE_OPTIONS = [
       <UiCard>
         <div class="mb-4 flex items-center gap-2">
           <MessageSquare class="h-4 w-4 text-slate-500" />
-          <h3 class="text-sm font-semibold text-slate-900">Сәлемдесу хабарламасы</h3>
+          <h3 class="text-sm font-semibold text-slate-900">Приветственное сообщение</h3>
         </div>
         <textarea
           v-model="settings.welcomeMessage"
           rows="3"
           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-          placeholder="Бөлмеге кірген кезде көрсетілетін хабарлама..."
+          placeholder="Сообщение, отображаемое при входе в комнату..."
         />
         <p class="mt-1 text-xs text-slate-500">
-          Бос қалдырсаңыз, сәлемдесу хабарламасы көрсетілмейді.
+          Если оставить пустым, приветственное сообщение не будет показано.
         </p>
       </UiCard>
     </template>

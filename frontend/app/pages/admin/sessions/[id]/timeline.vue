@@ -76,7 +76,7 @@ async function loadTimeline() {
     actions.value = await api.timeline.list(session.value.eventId, sessionId.value)
   } catch (err) {
     const apiErr = err as { detail?: string; title?: string }
-    loadError.value = apiErr.detail ?? apiErr.title ?? 'Таймлайнды жүктеу қатесі'
+    loadError.value = apiErr.detail ?? apiErr.title ?? 'Ошибка загрузки таймлайна'
   } finally {
     loading.value = false
   }
@@ -92,12 +92,12 @@ onMounted(() => {
 // ---------------------------------------------------------------------------
 
 const ACTION_TYPE_LABELS: Record<TimelineActionType, string> = {
-  CTA_SHOW: 'CTA көрсету',
-  CTA_HIDE: 'CTA жасыру',
-  ADMIN_MESSAGE_SHOW: 'Админ хабарлама',
-  SYSTEM_MESSAGE_SHOW: 'Жүйе хабарлама',
-  HISTORICAL_CHAT_REPLAY: 'Чат қайта ойнату',
-  ROOM_STATE_CHANGE: 'Бөлме күйі',
+  CTA_SHOW: 'Показать CTA',
+  CTA_HIDE: 'Скрыть CTA',
+  ADMIN_MESSAGE_SHOW: 'Сообщение админа',
+  SYSTEM_MESSAGE_SHOW: 'Системное сообщение',
+  HISTORICAL_CHAT_REPLAY: 'Воспроизведение чата',
+  ROOM_STATE_CHANGE: 'Состояние комнаты',
   FUTURE_RESERVED: 'Резерв',
 }
 
@@ -186,10 +186,10 @@ async function submitCreate() {
     actions.value.push(created)
     actions.value.sort((a, b) => a.offsetSeconds - b.offsetSeconds)
     createModalOpen.value = false
-    toast.success('Таймлайн әрекеті қосылды')
+    toast.success('Действие добавлено в таймлайн')
   } catch (err) {
     const apiErr = err as { detail?: string; title?: string }
-    toast.error(apiErr.detail ?? 'Қосу қатесі')
+    toast.error(apiErr.detail ?? 'Ошибка добавления')
   } finally {
     creating.value = false
   }
@@ -225,9 +225,9 @@ async function saveEdit(action: TimelineActionResponse) {
     if (idx >= 0) actions.value[idx] = updated
     actions.value.sort((a, b) => a.offsetSeconds - b.offsetSeconds)
     editingId.value = null
-    toast.success('Уақыт жаңартылды')
+    toast.success('Время обновлено')
   } catch {
-    toast.error('Жаңарту қатесі')
+    toast.error('Ошибка обновления')
   }
 }
 
@@ -245,7 +245,7 @@ async function toggleActive(action: TimelineActionResponse) {
     const idx = actions.value.findIndex((a) => a.id === action.id)
     if (idx >= 0) actions.value[idx] = updated
   } catch {
-    toast.error('Күйді өзгерту қатесі')
+    toast.error('Ошибка изменения состояния')
   } finally {
     togglingId.value = null
   }
@@ -272,9 +272,9 @@ async function confirmDelete() {
     actions.value = actions.value.filter((a) => a.id !== pendingDelete.value!.id)
     deleteModalOpen.value = false
     pendingDelete.value = null
-    toast.success('Әрекет жойылды')
+    toast.success('Действие удалено')
   } catch {
-    toast.error('Жою қатесі')
+    toast.error('Ошибка удаления')
   } finally {
     deleting.value = false
   }
@@ -314,7 +314,7 @@ function formatDateTime(iso: string) {
 useHead(() => ({
   title: session.value
     ? `Таймлайн — ${formatDateTime(session.value.startTime)}`
-    : 'Таймлайн редакторы',
+    : 'Редактор таймлайна',
 }))
 </script>
 
@@ -323,11 +323,11 @@ useHead(() => ({
     <!-- Session load error -->
     <UiCard v-if="sessionError" class="border-danger-200">
       <div class="py-8 text-center">
-        <h2 class="text-lg font-semibold text-slate-900">Сессия табылмады</h2>
-        <p class="mt-2 text-sm text-slate-500">Бұл сессия жоқ немесе сізде кіру құқығы жоқ.</p>
+        <h2 class="text-lg font-semibold text-slate-900">Сессия не найдена</h2>
+        <p class="mt-2 text-sm text-slate-500">Эта сессия не существует или у вас нет прав доступа.</p>
         <NuxtLink to="/admin" class="btn-ghost mt-4 inline-flex">
           <ArrowLeft class="h-4 w-4" />
-          Артқа
+          Назад
         </NuxtLink>
       </div>
     </UiCard>
@@ -336,20 +336,20 @@ useHead(() => ({
       <!-- Header -->
       <PageHeader
         :title="`Таймлайн: ${formatDateTime(session.startTime)}`"
-        subtitle="AUTO сессияларда қайта ойнатылатын әрекеттер: CTA, хабарламалар, күй өзгерістері"
+        subtitle="Действия, воспроизводимые в AUTO-сессиях: CTA, сообщения, изменения состояния"
       >
         <template #actions>
           <UiButton variant="primary" size="md" @click="openCreate">
             <Plus class="h-4 w-4" />
-            Жаңа әрекет
+            Новое действие
           </UiButton>
           <UiButton variant="outline" size="md" :loading="loading" @click="loadTimeline">
             <RefreshCw class="h-4 w-4" />
-            Жаңарту
+            Обновить
           </UiButton>
           <UiButton variant="ghost" size="md" :to="`/admin/sessions/${sessionId}/analytics`">
             <ArrowLeft class="h-4 w-4" />
-            Аналитикаға
+            К аналитике
           </UiButton>
         </template>
       </PageHeader>
@@ -358,15 +358,15 @@ useHead(() => ({
       <div class="mt-5 grid grid-cols-3 gap-3">
         <UiCard class="!py-3 text-center">
           <p class="text-2xl font-bold text-slate-900">{{ totalCount }}</p>
-          <p class="text-xs text-slate-500">Барлық әрекет</p>
+          <p class="text-xs text-slate-500">Всего действий</p>
         </UiCard>
         <UiCard class="!py-3 text-center">
           <p class="text-2xl font-bold text-success-600">{{ activeCount }}</p>
-          <p class="text-xs text-slate-500">Белсенді</p>
+          <p class="text-xs text-slate-500">Активных</p>
         </UiCard>
         <UiCard class="!py-3 text-center">
           <p class="text-2xl font-bold text-brand-600">{{ ctaShowCount }}</p>
-          <p class="text-xs text-slate-500">CTA көрсету</p>
+          <p class="text-xs text-slate-500">Показов CTA</p>
         </UiCard>
       </div>
 
@@ -374,7 +374,7 @@ useHead(() => ({
       <UiCard v-if="loadError" class="mt-4 border-danger-200 bg-danger-50/60">
         <p class="text-sm text-danger-700">{{ loadError }}</p>
         <template #footer>
-          <UiButton variant="outline" size="sm" @click="loadTimeline">Қайта көру</UiButton>
+          <UiButton variant="outline" size="sm" @click="loadTimeline">Повторить</UiButton>
         </template>
       </UiCard>
 
@@ -386,15 +386,15 @@ useHead(() => ({
       <!-- Empty -->
       <UiEmpty
         v-else-if="actions.length === 0"
-        title="Таймлайн бос"
-        description="Алғашқы әрекетті қосыңыз — CTA көрсету, хабарлама жіберу немесе бөлме күйін өзгерту."
+        title="Таймлайн пуст"
+        description="Добавьте первое действие -- показ CTA, отправка сообщения или изменение состояния комнаты."
         class="mt-4"
       >
         <template #icon><Clock class="h-5 w-5" /></template>
         <template #actions>
           <UiButton variant="primary" @click="openCreate">
             <Plus class="h-4 w-4" />
-            Жаңа әрекет
+            Новое действие
           </UiButton>
         </template>
       </UiEmpty>
@@ -405,10 +405,10 @@ useHead(() => ({
           <!-- Header row -->
           <div class="border-b border-slate-100 bg-slate-50 px-4 py-2.5">
             <div class="grid grid-cols-[80px_1fr_2fr_auto] items-center gap-3 text-xs font-medium uppercase tracking-wide text-slate-500">
-              <span>Уақыт</span>
+              <span>Время</span>
               <span>Тип</span>
-              <span>Мазмұны</span>
-              <span class="text-right">Әрекеттер</span>
+              <span>Содержимое</span>
+              <span class="text-right">Действия</span>
             </div>
           </div>
 
@@ -462,14 +462,14 @@ useHead(() => ({
                   <template v-if="editingId === action.id">
                     <button
                       class="rounded p-1.5 text-success-600 hover:bg-success-50"
-                      title="Сақтау"
+                      title="Сохранить"
                       @click="saveEdit(action)"
                     >
                       <Check class="h-4 w-4" />
                     </button>
                     <button
                       class="rounded p-1.5 text-slate-400 hover:bg-slate-100"
-                      title="Бас тарту"
+                      title="Отмена"
                       @click="cancelEdit"
                     >
                       <X class="h-4 w-4" />
@@ -482,7 +482,7 @@ useHead(() => ({
                         ? 'text-success-600 hover:bg-success-50'
                         : 'text-slate-400 hover:bg-slate-100'"
                       :disabled="togglingId === action.id"
-                      :title="action.active ? 'Өшіру' : 'Қосу'"
+                      :title="action.active ? 'Выключить' : 'Включить'"
                       @click="toggleActive(action)"
                     >
                       <component
@@ -493,14 +493,14 @@ useHead(() => ({
                     </button>
                     <button
                       class="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                      title="Уақытты өңдеу"
+                      title="Изменить время"
                       @click="startEdit(action)"
                     >
                       <Pencil class="h-4 w-4" />
                     </button>
                     <button
                       class="rounded p-1.5 text-slate-400 hover:bg-danger-50 hover:text-danger-600"
-                      title="Жою"
+                      title="Удалить"
                       @click="askDelete(action)"
                     >
                       <Trash2 class="h-4 w-4" />
@@ -515,11 +515,11 @@ useHead(() => ({
     </template>
 
     <!-- Create modal -->
-    <UiModal v-model="createModalOpen" title="Жаңа таймлайн әрекеті" size="md">
+    <UiModal v-model="createModalOpen" title="Новое действие таймлайна" size="md">
       <div class="space-y-4">
         <!-- Offset -->
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-700">Уақыт (мин:сек)</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-700">Время (мин:сек)</label>
           <div class="flex items-center gap-2">
             <UiInput
               v-model.number="createForm.offsetMinutes"
@@ -542,7 +542,7 @@ useHead(() => ({
 
         <!-- Action type -->
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-700">Әрекет типі</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-700">Тип действия</label>
           <UiSelect v-model="createForm.actionType">
             <option v-for="t in CREATABLE_TYPES" :key="t" :value="t">
               {{ ACTION_TYPE_LABELS[t] }}
@@ -559,49 +559,49 @@ useHead(() => ({
             </option>
           </UiSelect>
           <p v-if="ctas.length === 0" class="mt-1 text-xs text-warning-600">
-            CTA жоқ. Алдымен ивент бетінде CTA қосыңыз.
+            Нет CTA. Сначала добавьте CTA на странице мероприятия.
           </p>
         </div>
 
         <!-- Text (for message types) -->
         <div v-if="createForm.actionType === 'ADMIN_MESSAGE_SHOW' || createForm.actionType === 'SYSTEM_MESSAGE_SHOW'">
-          <label class="mb-1.5 block text-sm font-medium text-slate-700">Хабарлама мәтіні</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-700">Текст сообщения</label>
           <textarea
             v-model="createForm.text"
             rows="3"
             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-            placeholder="Хабарлама мәтінін жазыңыз..."
+            placeholder="Введите текст сообщения..."
           />
         </div>
 
         <!-- State (for ROOM_STATE_CHANGE) -->
         <div v-if="createForm.actionType === 'ROOM_STATE_CHANGE'">
-          <label class="mb-1.5 block text-sm font-medium text-slate-700">Жаңа күй</label>
-          <UiInput v-model="createForm.state" placeholder="Мысалы: CHAT_DISABLED" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-700">Новое состояние</label>
+          <UiInput v-model="createForm.state" placeholder="Например: CHAT_DISABLED" />
         </div>
       </div>
 
       <template #footer>
-        <UiButton variant="outline" @click="createModalOpen = false">Бас тарту</UiButton>
+        <UiButton variant="outline" @click="createModalOpen = false">Отмена</UiButton>
         <UiButton variant="primary" :loading="creating" @click="submitCreate">
           <Plus class="h-4 w-4" />
-          Қосу
+          Добавить
         </UiButton>
       </template>
     </UiModal>
 
     <!-- Delete confirm -->
-    <UiModal v-model="deleteModalOpen" title="Әрекетті жою" size="sm">
+    <UiModal v-model="deleteModalOpen" title="Удалить действие" size="sm">
       <p class="text-sm text-slate-600">
-        Бұл таймлайн әрекеті біржола жойылады. AUTO сессияларда қайта ойнатылмайды.
+        Это действие таймлайна будет удалено безвозвратно. Оно не будет воспроизводиться в AUTO-сессиях.
       </p>
       <template #footer>
         <UiButton variant="outline" :disabled="deleting" @click="deleteModalOpen = false">
-          Бас тарту
+          Отмена
         </UiButton>
         <UiButton variant="danger" :loading="deleting" @click="confirmDelete">
           <Trash2 class="h-4 w-4" />
-          Жою
+          Удалить
         </UiButton>
       </template>
     </UiModal>

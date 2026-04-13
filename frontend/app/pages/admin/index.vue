@@ -26,11 +26,11 @@ definePageMeta({
   middleware: 'auth',
 })
 
-useHead({ title: 'Басты бет — Webizon' })
+useHead({ title: 'Главная — Webizon' })
 
 const auth = useAuthStore()
 const api = useApi()
-const displayName = computed(() => auth.user?.fullName || auth.user?.email?.split('@')[0] || 'дос')
+const displayName = computed(() => auth.user?.fullName || auth.user?.email?.split('@')[0] || 'друг')
 
 // ---------------------------------------------------------------------------
 // Data
@@ -113,26 +113,26 @@ function formatRelative(iso: string) {
 const shortcuts = [
   {
     to: '/admin/events',
-    title: 'Ивенттер',
-    description: 'Жаңа ивент жасау, бар ивенттерді редакциялау.',
+    title: 'Мероприятия',
+    description: 'Создание и редактирование мероприятий.',
     icon: Calendar,
   },
   {
     to: '/admin/sessions',
-    title: 'Сессиялар',
-    description: 'Жоспарланған және өтіп жатқан эфирлер.',
+    title: 'Сессии',
+    description: 'Запланированные и текущие трансляции.',
     icon: Radio,
   },
   {
     to: '/admin/members',
-    title: 'Мүшелер',
-    description: 'Командаңызды шақырыңыз және рөлдерді басқарыңыз.',
+    title: 'Команда',
+    description: 'Пригласите коллег и управляйте ролями.',
     icon: Users,
   },
   {
     to: '/admin/settings',
-    title: 'Баптаулар',
-    description: 'Жұмыс кеңістігі баптаулары.',
+    title: 'Настройки',
+    description: 'Настройки рабочего пространства.',
     icon: Settings,
   },
 ]
@@ -143,8 +143,8 @@ const shortcuts = [
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-semibold text-slate-900">Сәлем, {{ displayName }}</h1>
-        <p class="mt-1 text-sm text-slate-500">Webizon басқару панелі</p>
+        <h1 class="text-2xl font-semibold text-slate-900">Привет, {{ displayName }}</h1>
+        <p class="mt-1 text-sm text-slate-500">Панель управления Webizon</p>
       </div>
       <UiButton variant="ghost" size="sm" :disabled="loading" @click="refresh">
         <RefreshCw class="h-4 w-4" :class="loading && 'animate-spin'" />
@@ -160,7 +160,7 @@ const shortcuts = [
           </div>
           <div>
             <p class="text-2xl font-bold text-slate-900">{{ liveSessions.length }}</p>
-            <p class="text-xs text-slate-500">Эфирде</p>
+            <p class="text-xs text-slate-500">В эфире</p>
           </div>
         </div>
       </UiCard>
@@ -171,7 +171,7 @@ const shortcuts = [
           </div>
           <div>
             <p class="text-2xl font-bold text-slate-900">{{ upcomingSessions.length }}</p>
-            <p class="text-xs text-slate-500">Алдағы сессиялар</p>
+            <p class="text-xs text-slate-500">Предстоящие сессии</p>
           </div>
         </div>
       </UiCard>
@@ -182,7 +182,7 @@ const shortcuts = [
           </div>
           <div>
             <p class="text-2xl font-bold text-slate-900">{{ publishedEvents }}</p>
-            <p class="text-xs text-slate-500">Жарияланған ивент</p>
+            <p class="text-xs text-slate-500">Опубликованных</p>
           </div>
         </div>
       </UiCard>
@@ -193,7 +193,7 @@ const shortcuts = [
           </div>
           <div>
             <p class="text-2xl font-bold text-slate-900">{{ endedCount }}</p>
-            <p class="text-xs text-slate-500">Аяқталған сессия</p>
+            <p class="text-xs text-slate-500">Завершённых сессий</p>
           </div>
         </div>
       </UiCard>
@@ -203,7 +203,7 @@ const shortcuts = [
     <div v-if="liveSessions.length > 0" class="space-y-2">
       <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-danger-600">
         <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-danger-500" />
-        Эфирдегі сессиялар
+        Сессии в эфире
       </div>
       <div
         v-for="s in liveSessions"
@@ -215,13 +215,13 @@ const shortcuts = [
           <p class="text-xs text-slate-500">{{ s.type }} · {{ formatRelative(s.actualStartedAt || s.startTime) }}</p>
         </div>
         <UiButton variant="primary" size="sm" :to="`/admin/sessions/${s.id}/live`">
-          <Radio class="h-3.5 w-3.5" /> Басқару
+          <Radio class="h-3.5 w-3.5" /> Управление
         </UiButton>
       </div>
     </div>
 
     <!-- Upcoming sessions -->
-    <UiCard v-if="upcomingSessions.length > 0" title="Алдағы сессиялар" :padded="false">
+    <UiCard v-if="upcomingSessions.length > 0" title="Предстоящие сессии" :padded="false">
       <ul class="divide-y divide-slate-100">
         <li
           v-for="s in upcomingSessions"
@@ -248,7 +248,7 @@ const shortcuts = [
 
     <!-- Quick shortcuts -->
     <div>
-      <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Жылдам сілтемелер</h2>
+      <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Быстрые действия</h2>
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <NuxtLink
           v-for="s in shortcuts"
@@ -270,11 +270,11 @@ const shortcuts = [
       <div class="flex items-center gap-3">
         <Calendar class="h-5 w-5 text-amber-600" />
         <div>
-          <p class="text-sm font-medium text-slate-900">{{ draftEvents }} қара жоба ивент бар</p>
-          <p class="text-xs text-slate-500">Жариялау үшін ивенттер бетіне өтіңіз.</p>
+          <p class="text-sm font-medium text-slate-900">{{ draftEvents }} черновиков мероприятий</p>
+          <p class="text-xs text-slate-500">Перейдите в мероприятия для публикации.</p>
         </div>
         <UiButton variant="outline" size="sm" to="/admin/events" class="ml-auto">
-          Көру
+          Открыть
         </UiButton>
       </div>
     </UiCard>

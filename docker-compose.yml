@@ -12,7 +12,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-webizon}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-webizon}
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -36,20 +36,21 @@ services:
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     ports:
       - "8123:8123"
-      - "9000:9000"
+      - "19000:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./infra/clickhouse/init:/docker-entrypoint-initdb.d:ro
+      - ./infra/clickhouse/config:/etc/clickhouse-server/config.d:ro
     ulimits:
       nofile:
         soft: 262144
         hard: 262144
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8123/ping 2>/dev/null | grep -q Ok || exit 1"]
       interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
     networks:
       - webizon-net
 
@@ -63,7 +64,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "allkeys-lru"]
     ports:
-      - "6379:6379"
+      - "6382:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -89,10 +90,11 @@ services:
       - zookeeper_data:/var/lib/zookeeper/data
       - zookeeper_logs:/var/lib/zookeeper/log
     healthcheck:
-      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      test: ["CMD", "bash", "-c", "echo ruok | timeout 2 bash -c 'cat >/dev/tcp/localhost/2181' && echo ok"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 20s
     networks:
       - webizon-net
 
@@ -107,7 +109,7 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -116,7 +118,7 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_NUM_PARTITIONS: 6
     ports:
-      - "9092:9092"
+      - "9093:9092"
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
@@ -180,8 +182,8 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
     command: server /data --console-address ":9001"
     ports:
-      - "9002:9000"
-      - "9001:9001"
+      - "9010:9000"
+      - "9011:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -227,17 +229,20 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
       KC_DB: dev-file
+      # Google IDP credentials — referenced as ${env.GOOGLE_CLIENT_ID} in realm JSON
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-CONFIGURE_ME}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-CONFIGURE_ME}
     ports:
       - "8180:8180"
     volumes:
       - ./infra/keycloak/import:/opt/keycloak/data/import:ro
       - keycloak_data:/opt/keycloak/data
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8180 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      test: ["CMD-SHELL", "/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8180 --realm master --user admin --password admin 2>/dev/null && echo ok || exit 1"]
       interval: 20s
-      timeout: 10s
+      timeout: 15s
       retries: 10
-      start_period: 60s
+      start_period: 90s
     networks:
       - webizon-net
 
@@ -270,9 +275,9 @@ services:
       WEBIZON_MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8180/realms/webizon
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8180/realms/webizon/protocol/openid-connect/certs
-      WEBIZON_CORS_ALLOWED_ORIGINS: http://localhost:3000
+      WEBIZON_CORS_ALLOWED_ORIGINS: http://localhost:3001
     ports:
-      - "8080:8080"
+      - "8081:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -301,7 +306,7 @@ services:
       NUXT_PUBLIC_AUTH_CLIENT_ID: webizon-frontend
       NUXT_PUBLIC_AUTH_REALM: webizon
     ports:
-      - "3000:3000"
+      - "3001:3000"
     depends_on:
       - backend
     networks:

@@ -3,6 +3,7 @@ package com.webizon.chat.api;
 import com.webizon.auth.CurrentUser;
 import com.webizon.chat.api.dto.ChatMessageResponse;
 import com.webizon.chat.api.dto.SendMessageRequest;
+import com.webizon.chat.model.ChatMessage;
 import com.webizon.chat.policy.ChatPolicyViolation;
 import com.webizon.chat.repo.ChatMessageRepository;
 import com.webizon.chat.service.ChatService;
@@ -22,34 +23,31 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * REST surface for live chat.
  *
- * <p>In production the real-time fan-out happens via Centrifugo — this
- * controller only handles writes (which must go through policy
- * enforcement and persistence) and paginated history reads. The front
- * end calls:
+ * <p>Supports two pagination modes:
+ * <ol>
+ *   <li><strong>Initial load</strong> — no cursor, returns newest N messages</li>
+ *   <li><strong>Cursor-based (keyset)</strong> — pass {@code before}/{@code beforeId}
+ *       to load older messages, or {@code after}/{@code afterId} to load newer.
+ *       This avoids O(offset) scans at high message counts.</li>
+ * </ol>
  *
- * <ul>
- *   <li>{@code POST /api/v1/sessions/{id}/chat/messages} to send</li>
- *   <li>{@code GET /api/v1/sessions/{id}/chat/messages} to backfill on
- *       reconnect before the websocket catches up</li>
- * </ul>
- *
- * <p>Both endpoints require an authenticated user; the call to
- * {@link CurrentUser#tenantId()} fails fast if the JWT is missing a
- * {@code tenant_id} claim.
+ * <p>Real-time fan-out uses Centrifugo; this controller handles writes
+ * (through the policy chain) and paginated history reads.
  */
 @RestController
 @RequestMapping("/api/v1/sessions/{sessionId}/chat")
 @RequiredArgsConstructor
 public class ChatController {
 
-    /** Maximum page size for history backfill. */
-    private static final int MAX_HISTORY_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final int DEFAULT_PAGE_SIZE = 50;
 
     private final ChatService chatService;
     private final ChatMessageRepository chatMessageRepository;
@@ -64,34 +62,76 @@ public class ChatController {
         String role = CurrentUser.role();
 
         var saved = chatService.sendMessage(new ChatService.SendMessageCommand(
-                sessionId,
-                userId,
-                role,
-                request.text(),
-                request.replyToMessageId()
+                sessionId, userId, role,
+                request.text(), request.replyToMessageId()
         ));
         return ChatMessageResponse.from(saved);
     }
 
+    /**
+     * Paginated chat history with cursor support.
+     *
+     * <p>Usage examples:
+     * <pre>
+     * GET /messages?limit=50                          → initial load (newest 50)
+     * GET /messages?limit=50&before=2026-04-12T10:00:00Z&beforeId=abc-123
+     *                                                 → older messages (scroll up)
+     * GET /messages?limit=50&after=2026-04-12T10:05:00Z&afterId=def-456
+     *                                                 → newer messages (reconnect catch-up)
+     * </pre>
+     */
     @GetMapping("/messages")
     @PreAuthorize("isAuthenticated()")
-    public List<ChatMessageResponse> history(
+    public ChatHistoryResponse history(
             @PathVariable UUID sessionId,
-            @RequestParam(name = "limit", defaultValue = "50") int limit) {
+            @RequestParam(name = "limit", defaultValue = "50") int limit,
+            @RequestParam(name = "before", required = false) Instant before,
+            @RequestParam(name = "beforeId", required = false) UUID beforeId,
+            @RequestParam(name = "after", required = false) Instant after,
+            @RequestParam(name = "afterId", required = false) UUID afterId) {
 
-        int capped = Math.min(Math.max(limit, 1), MAX_HISTORY_PAGE_SIZE);
-        return chatMessageRepository.findLiveFeed(sessionId, PageRequest.of(0, capped))
-                .stream()
+        int capped = Math.min(Math.max(limit, 1), MAX_PAGE_SIZE);
+        PageRequest page = PageRequest.of(0, capped);
+
+        List<ChatMessage> messages;
+
+        if (before != null && beforeId != null) {
+            // Keyset: load older messages (scroll up)
+            messages = chatMessageRepository.findLiveFeedBefore(sessionId, before, beforeId, page);
+        } else if (after != null && afterId != null) {
+            // Keyset: load newer messages (reconnect catch-up)
+            messages = chatMessageRepository.findLiveFeedAfter(sessionId, after, afterId, page);
+        } else {
+            // Initial load: newest messages
+            messages = chatMessageRepository.findLiveFeed(sessionId, page);
+        }
+
+        List<ChatMessageResponse> items = messages.stream()
                 .map(ChatMessageResponse::from)
                 .toList();
+
+        // Build cursor for the client
+        String nextCursor = null;
+        String nextCursorId = null;
+        if (!messages.isEmpty() && messages.size() == capped) {
+            ChatMessage last = messages.get(messages.size() - 1);
+            nextCursor = last.getCreatedAt().toString();
+            nextCursorId = last.getId().toString();
+        }
+
+        return new ChatHistoryResponse(items, nextCursor, nextCursorId, messages.size() == capped);
     }
 
     /**
-     * Map policy violations onto RFC-9457 ProblemDetail so the front-end
-     * sees a stable machine-readable {@code code} field in the response.
-     * We return 422 rather than 400 to distinguish "your request was
-     * valid JSON but a chat rule stopped it" from malformed input.
+     * Response wrapper with cursor metadata for pagination.
      */
+    public record ChatHistoryResponse(
+            List<ChatMessageResponse> messages,
+            String nextCursor,
+            String nextCursorId,
+            boolean hasMore
+    ) {}
+
     @ExceptionHandler(ChatPolicyViolation.class)
     public ProblemDetail onPolicyViolation(ChatPolicyViolation ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());

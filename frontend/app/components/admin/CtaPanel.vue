@@ -48,7 +48,7 @@ async function refresh() {
   try {
     ctas.value = await api.cta.list(props.eventId)
   } catch {
-    toast.error('CTA жүктеу қатесі')
+    toast.error('Ошибка загрузки CTA')
   } finally {
     loading.value = false
   }
@@ -62,7 +62,7 @@ onMounted(refresh)
 
 const TYPE_LABELS: Record<CtaType, string> = {
   FILE: 'Файл',
-  LINK: 'Сілтеме',
+  LINK: 'Ссылка',
   COURSE: 'Курс',
   FORM: 'Форма',
 }
@@ -76,9 +76,9 @@ const TYPE_ICONS: Record<CtaType, typeof Download> = {
 
 const PLACEMENT_LABELS: Record<CtaPlacement, string> = {
   INLINE: 'Инлайн',
-  SIDEBAR: 'Бүйір панель',
+  SIDEBAR: 'Боковая панель',
   POPUP: 'Попап',
-  BELOW_VIDEO: 'Видео астында',
+  BELOW_VIDEO: 'Под видео',
 }
 
 const CTA_TYPES: CtaType[] = ['FILE', 'LINK', 'COURSE', 'FORM']
@@ -112,7 +112,7 @@ function openCreate() {
     title: '',
     description: '',
     type: 'LINK',
-    buttonText: 'Көбірек білу',
+    buttonText: 'Узнать больше',
     actionUrl: '',
     fileUrl: '',
     placement: 'BELOW_VIDEO',
@@ -156,7 +156,7 @@ async function submitForm() {
       }
       const created = await api.cta.create(props.eventId, body)
       ctas.value.push(created)
-      toast.success('CTA қосылды')
+      toast.success('CTA добавлен')
     } else if (editingCta.value) {
       const body: CtaUpdateRequest = {
         title: form.value.title,
@@ -172,12 +172,12 @@ async function submitForm() {
       const updated = await api.cta.update(props.eventId, editingCta.value.id, body)
       const idx = ctas.value.findIndex((c) => c.id === updated.id)
       if (idx >= 0) ctas.value[idx] = updated
-      toast.success('CTA жаңартылды')
+      toast.success('CTA обновлён')
     }
     modalOpen.value = false
   } catch (err) {
     const apiErr = err as { detail?: string; title?: string }
-    toast.error(apiErr.detail ?? 'Сақтау қатесі')
+    toast.error(apiErr.detail ?? 'Ошибка сохранения')
   } finally {
     saving.value = false
   }
@@ -196,7 +196,7 @@ async function toggleActive(cta: CtaResponse) {
     const idx = ctas.value.findIndex((c) => c.id === cta.id)
     if (idx >= 0) ctas.value[idx] = updated
   } catch {
-    toast.error('Күйді өзгерту қатесі')
+    toast.error('Ошибка изменения состояния')
   } finally {
     togglingId.value = null
   }
@@ -223,9 +223,9 @@ async function confirmDelete() {
     ctas.value = ctas.value.filter((c) => c.id !== pendingDelete.value!.id)
     deleteModalOpen.value = false
     pendingDelete.value = null
-    toast.success('CTA жойылды')
+    toast.success('CTA удалён')
   } catch {
-    toast.error('Жою қатесі')
+    toast.error('Ошибка удаления')
   } finally {
     deleting.value = false
   }
@@ -240,9 +240,9 @@ const activeCount = computed(() => ctas.value.filter((c) => c.active).length)
     <!-- Header -->
     <div class="flex items-center justify-between gap-3">
       <div>
-        <h2 class="text-lg font-semibold text-slate-900">CTA элементтері</h2>
+        <h2 class="text-lg font-semibold text-slate-900">Элементы CTA</h2>
         <p class="mt-0.5 text-sm text-slate-500">
-          {{ totalCount }} CTA, {{ activeCount }} белсенді. Файл, сілтеме, курс немесе форма типінде.
+          {{ totalCount }} CTA, {{ activeCount }} активных. Типы: файл, ссылка, курс или форма.
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -251,7 +251,7 @@ const activeCount = computed(() => ctas.value.filter((c) => c.active).length)
         </UiButton>
         <UiButton variant="primary" size="md" @click="openCreate">
           <Plus class="h-4 w-4" />
-          Жаңа CTA
+          Новый CTA
         </UiButton>
       </div>
     </div>
@@ -264,14 +264,14 @@ const activeCount = computed(() => ctas.value.filter((c) => c.active).length)
     <!-- Empty -->
     <UiEmpty
       v-else-if="ctas.length === 0"
-      title="CTA жоқ"
-      description="Алғашқы CTA қосыңыз — файл, сілтеме, курс немесе форма."
+      title="Нет CTA"
+      description="Добавьте первый CTA — файл, ссылку, курс или форму."
     >
       <template #icon><Megaphone class="h-5 w-5" /></template>
       <template #actions>
         <UiButton variant="primary" @click="openCreate">
           <Plus class="h-4 w-4" />
-          Жаңа CTA
+          Новый CTA
         </UiButton>
       </template>
     </UiEmpty>
@@ -331,52 +331,54 @@ const activeCount = computed(() => ctas.value.filter((c) => c.active).length)
     <!-- Create/Edit modal -->
     <UiModal
       v-model="modalOpen"
-      :title="modalMode === 'create' ? 'Жаңа CTA' : 'CTA өңдеу'"
+      :title="modalMode === 'create' ? 'Новый CTA' : 'Редактирование CTA'"
       size="lg"
     >
       <div class="space-y-4">
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-700">Тақырып</label>
-          <UiInput v-model="form.title" placeholder="Мысалы: Курсқа жазылу" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-700">Заголовок</label>
+          <UiInput v-model="form.title" placeholder="Например: Записаться на курс" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-700">Сипаттама</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-700">Описание</label>
           <textarea
             v-model="form.description"
             rows="2"
             class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-            placeholder="Қосымша ақпарат..."
+            placeholder="Дополнительная информация..."
           />
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-700">Тип</label>
+
             <UiSelect v-model="form.type">
               <option v-for="t in CTA_TYPES" :key="t" :value="t">{{ TYPE_LABELS[t] }}</option>
             </UiSelect>
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-700">Орналасу</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-700">Размещение</label>
             <UiSelect v-model="form.placement">
               <option v-for="p in PLACEMENTS" :key="p" :value="p">{{ PLACEMENT_LABELS[p] }}</option>
             </UiSelect>
           </div>
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-700">Батырма мәтіні</label>
-          <UiInput v-model="form.buttonText" placeholder="Көбірек білу" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-700">Текст кнопки</label>
+          <UiInput v-model="form.buttonText" placeholder="Узнать больше" />
         </div>
         <div v-if="form.type !== 'FILE'">
-          <label class="mb-1.5 block text-sm font-medium text-slate-700">Сілтеме URL</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-700">URL ссылки</label>
           <UiInput v-model="form.actionUrl" placeholder="https://..." />
         </div>
         <div v-if="form.type === 'FILE'">
-          <label class="mb-1.5 block text-sm font-medium text-slate-700">Файл URL</label>
-          <UiInput v-model="form.fileUrl" placeholder="https://... немесе MinIO жолы" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-700">URL файла</label>
+          <UiInput v-model="form.fileUrl" placeholder="https://... или путь MinIO" />
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-700">Приоритет</label>
+
             <UiInput v-model.number="form.priority" type="number" :min="0" />
           </div>
           <div class="flex items-end pb-1">
@@ -386,32 +388,32 @@ const activeCount = computed(() => ctas.value.filter((c) => c.active).length)
                 type="checkbox"
                 class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
               />
-              Стектеуге рұқсат
+              Разрешить стек
             </label>
           </div>
         </div>
       </div>
       <template #footer>
-        <UiButton variant="outline" @click="modalOpen = false">Бас тарту</UiButton>
+        <UiButton variant="outline" @click="modalOpen = false">Отмена</UiButton>
         <UiButton variant="primary" :loading="saving" :disabled="!form.title || !form.buttonText" @click="submitForm">
-          {{ modalMode === 'create' ? 'Қосу' : 'Сақтау' }}
+          {{ modalMode === 'create' ? 'Добавить' : 'Сохранить' }}
         </UiButton>
       </template>
     </UiModal>
 
     <!-- Delete confirm -->
-    <UiModal v-model="deleteModalOpen" title="CTA жою" size="sm">
+    <UiModal v-model="deleteModalOpen" title="Удаление CTA" size="sm">
       <div class="flex items-start gap-3 rounded-lg border border-danger-200 bg-danger-50 p-3">
         <AlertTriangle class="mt-0.5 h-5 w-5 shrink-0 text-danger-500" />
         <p class="text-sm text-danger-800">
-          «{{ pendingDelete?.title }}» CTA-сы біржола жойылады. Таймлайн әрекеттері осы CTA-ға сілтеме жасаса, олар жұмыс істемейді.
+          CTA «{{ pendingDelete?.title }}» будет удалён безвозвратно. Если действия таймлайна ссылаются на этот CTA, они перестанут работать.
         </p>
       </div>
       <template #footer>
-        <UiButton variant="outline" :disabled="deleting" @click="deleteModalOpen = false">Бас тарту</UiButton>
+        <UiButton variant="outline" :disabled="deleting" @click="deleteModalOpen = false">Отмена</UiButton>
         <UiButton variant="danger" :loading="deleting" @click="confirmDelete">
           <Trash2 class="h-4 w-4" />
-          Жою
+          Удалить
         </UiButton>
       </template>
     </UiModal>

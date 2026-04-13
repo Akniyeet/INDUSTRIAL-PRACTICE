@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,36 +14,76 @@ import java.util.UUID;
  * JPA repository for {@link ChatMessage}. Tenant-scoped via Hibernate's
  * {@code @TenantId} filter and PostgreSQL RLS.
  *
- * <p>Queries are read-path-first and intentionally parsimonious with
- * projections: the live feed under load reads thousands of rows per
- * second, and wide selects would multiply network and heap cost.
+ * <p>Live feed uses <strong>keyset (cursor-based) pagination</strong> instead
+ * of offset-based to avoid the O(offset) scan cost at high message counts.
+ * The cursor is {@code (createdAt, id)} — both columns are covered by the
+ * partial index {@code chat_messages_session_live_idx}.
  */
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> {
 
     /**
-     * Most recent non-deleted messages for a session, newest first.
-     *
-     * <p>Used to bootstrap the chat pane when a viewer joins. Matches
-     * the partial index {@code chat_messages_session_live_idx} so the
-     * executor does an index-only range scan regardless of how many
-     * soft-deleted rows the session accumulates.
+     * <strong>Initial load</strong> — most recent messages, newest first.
+     * Called when a viewer first opens the chat pane (no cursor yet).
      */
     @Query("""
            select m from ChatMessage m
            where m.sessionId = :sessionId
              and m.deleted = false
              and m.hidden = false
-           order by m.createdAt desc
+           order by m.createdAt desc, m.id desc
            """)
     List<ChatMessage> findLiveFeed(@Param("sessionId") UUID sessionId, Pageable pageable);
 
     /**
+     * <strong>Cursor-based load</strong> — messages older than the cursor,
+     * newest first. Uses keyset pagination: WHERE (createdAt, id) < (cursor).
+     *
+     * <p>This avoids the PostgreSQL "skip N rows" cost that offset-based
+     * pagination suffers at high offsets. At 60K messages, offset=50000
+     * scans 50K index entries; keyset seeks directly to the cursor row.
+     *
+     * @param sessionId  session to load
+     * @param cursorTime createdAt of the last loaded message
+     * @param cursorId   id of the last loaded message (tie-breaker)
+     * @param pageable   limit only (page number ignored)
+     */
+    @Query("""
+           select m from ChatMessage m
+           where m.sessionId = :sessionId
+             and m.deleted = false
+             and m.hidden = false
+             and (m.createdAt < :cursorTime
+                  or (m.createdAt = :cursorTime and m.id < :cursorId))
+           order by m.createdAt desc, m.id desc
+           """)
+    List<ChatMessage> findLiveFeedBefore(
+            @Param("sessionId") UUID sessionId,
+            @Param("cursorTime") Instant cursorTime,
+            @Param("cursorId") UUID cursorId,
+            Pageable pageable);
+
+    /**
+     * <strong>New messages since cursor</strong> — messages newer than the
+     * cursor, oldest first. Used for "load new" polling or after reconnect.
+     */
+    @Query("""
+           select m from ChatMessage m
+           where m.sessionId = :sessionId
+             and m.deleted = false
+             and m.hidden = false
+             and (m.createdAt > :cursorTime
+                  or (m.createdAt = :cursorTime and m.id > :cursorId))
+           order by m.createdAt asc, m.id asc
+           """)
+    List<ChatMessage> findLiveFeedAfter(
+            @Param("sessionId") UUID sessionId,
+            @Param("cursorTime") Instant cursorTime,
+            @Param("cursorId") UUID cursorId,
+            Pageable pageable);
+
+    /**
      * All replay-eligible messages for a source LIVE session ordered
-     * by their captured {@code offset_seconds}. Used by the admin
-     * curation view to show the full transcript that would replay in
-     * future AUTO sessions — deleted and hidden rows are excluded,
-     * but messages marked {@code excludedFromReplay} are still
-     * returned so the admin can toggle them back on.
+     * by offset. Used by the admin curation view.
      */
     @Query("""
            select m from ChatMessage m
@@ -55,14 +96,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
     List<ChatMessage> findHistoricalTranscript(@Param("sourceSessionId") UUID sourceSessionId);
 
     /**
-     * Replay-window query: every message for the source session
-     * whose offset falls inside {@code (fromOffsetExclusive,
-     * toOffsetInclusive]}, filtered to the replay pipeline's rules
-     * — not deleted, not hidden, not admin-excluded. The tick loop
-     * calls this with its advancing cursor on every pass.
-     *
-     * <p>The interval is half-open on the left so the same row can
-     * never be dispatched twice by two consecutive ticks.
+     * Replay-window query for the timeline tick loop.
+     * Half-open interval: (fromExclusive, toInclusive].
      */
     @Query("""
            select m from ChatMessage m
@@ -80,16 +115,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
             @Param("fromOffsetExclusive") int fromOffsetExclusive,
             @Param("toOffsetInclusive") int toOffsetInclusive);
 
-    /**
-     * Count non-deleted messages a user has sent in a session. Used by
-     * anti-flood policies and engagement analytics.
-     */
     long countBySessionIdAndUserIdAndDeletedFalse(UUID sessionId, UUID userId);
 
-    /**
-     * Full chat transcript for session export — includes all non-deleted
-     * messages ordered chronologically. Used by the XLSX export endpoint.
-     */
     @Query("""
            select m from ChatMessage m
            where m.sessionId = :sessionId

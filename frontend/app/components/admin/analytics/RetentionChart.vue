@@ -28,7 +28,7 @@ function formatOffset(secs: number): string {
   if (m < 60) return `${m} мин`
   const h = Math.floor(m / 60)
   const rem = m % 60
-  return rem === 0 ? `${h} сағ` : `${h}с ${rem}м`
+  return rem === 0 ? `${h} ч` : `${h}ч ${rem}м`
 }
 </script>
 
@@ -37,7 +37,7 @@ function formatOffset(secs: number): string {
     <h3 class="mb-4 text-sm font-semibold text-slate-900">Retention</h3>
 
     <div v-if="points.length === 0" class="py-8 text-center text-sm text-slate-400">
-      Деректер жоқ
+      Нет данных
     </div>
 
     <div v-else class="space-y-2">

@@ -102,7 +102,7 @@ const { data: bootstrap, error: bootstrapError } = await useAsyncData(
 useHead(() => ({
   title: bootstrap.value?.event?.title
     ? `${bootstrap.value.event.title} — эфир`
-    : 'Эфир бөлмесі',
+    : 'Комната трансляции',
 }))
 
 // ---------------------------------------------------------------------------
@@ -242,8 +242,8 @@ const mobileTab = ref<'chat' | 'cta'>('chat')
     <!-- Bootstrap error -->
     <UiCard v-if="bootstrapError" class="text-center">
       <div class="space-y-3 py-12">
-        <h2 class="text-xl font-semibold text-slate-900">Бөлмеге кіру мүмкін болмады</h2>
-        <p class="text-sm text-slate-500">Сессия қол жетімсіз немесе сізде кіру құқығы жоқ.</p>
+        <h2 class="text-xl font-semibold text-slate-900">Не удалось войти в комнату</h2>
+        <p class="text-sm text-slate-500">Сессия недоступна или у вас нет прав доступа.</p>
       </div>
     </UiCard>
 
@@ -259,14 +259,14 @@ const mobileTab = ref<'chat' | 'cta'>('chat')
             class="mt-0.5 inline-flex items-center gap-1.5 text-xs font-medium text-danger-700"
           >
             <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-600" />
-            Эфирде
+            В эфире
           </p>
         </div>
         <NuxtLink
           :to="`/e/${tenantSlug}/${eventSlug}`"
           class="text-xs text-slate-500 hover:text-slate-900"
         >
-          ← Бетке оралу
+          ← Вернуться
         </NuxtLink>
       </div>
 
@@ -318,7 +318,7 @@ const mobileTab = ref<'chat' | 'cta'>('chat')
               :class="mobileTab === 'cta' ? 'bg-white shadow text-slate-900' : 'text-slate-500'"
               @click="mobileTab = 'cta'"
             >
-              Ұсыныстар
+              Предложения
               <span
                 v-if="activeCtas.length"
                 class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-100 px-1 text-[10px] font-semibold text-brand-700"

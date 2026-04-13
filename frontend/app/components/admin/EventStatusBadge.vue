@@ -11,9 +11,9 @@ const props = defineProps<{ status: EventStatus }>()
 
 const config = computed(() => {
   switch (props.status) {
-    case 'DRAFT':     return { tone: 'neutral' as const, label: 'Жоба' }
-    case 'PUBLISHED': return { tone: 'success' as const, label: 'Жарияланған' }
-    case 'ARCHIVED':  return { tone: 'warning' as const, label: 'Мұрағатта' }
+    case 'DRAFT':     return { tone: 'neutral' as const, label: 'Черновик' }
+    case 'PUBLISHED': return { tone: 'success' as const, label: 'Опубликовано' }
+    case 'ARCHIVED':  return { tone: 'warning' as const, label: 'В архиве' }
     default:          return { tone: 'neutral' as const, label: String(props.status) }
   }
 })

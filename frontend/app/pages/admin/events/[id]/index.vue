@@ -59,7 +59,7 @@ const { data: event, pending, error, refresh } = useAsyncData<EventResponse>(
 )
 
 useHead({
-  title: () => (event.value ? `${event.value.title} — Webizon` : 'Ивент — Webizon'),
+  title: () => (event.value ? `${event.value.title} — Webizon` : 'Мероприятие — Webizon'),
 })
 
 // ---------------------------------------------------------------------------
@@ -68,11 +68,11 @@ useHead({
 
 type TabKey = 'overview' | 'sessions' | 'cta' | 'chat' | 'timeline'
 const tabs: { key: TabKey; label: string; icon: typeof Calendar }[] = [
-  { key: 'overview',  label: 'Шолу',           icon: Calendar },
-  { key: 'sessions',  label: 'Сессиялар',      icon: Radio },
-  { key: 'cta',       label: 'CTA',            icon: Megaphone },
-  { key: 'timeline',  label: 'Таймлайн',       icon: Clock },
-  { key: 'chat',      label: 'Чат баптаулары', icon: MessageSquare },
+  { key: 'overview',  label: 'Обзор',            icon: Calendar },
+  { key: 'sessions',  label: 'Сессии',           icon: Radio },
+  { key: 'cta',       label: 'CTA',              icon: Megaphone },
+  { key: 'timeline',  label: 'Таймлайн',         icon: Clock },
+  { key: 'chat',      label: 'Настройки чата',   icon: MessageSquare },
 ]
 
 const activeTab = ref<TabKey>((route.query.tab as TabKey) || 'overview')
@@ -96,7 +96,7 @@ async function doPublish() {
   try {
     const updated = await api.events.publish(event.value.id)
     event.value = updated
-    toast.success('Ивент жарияланды')
+    toast.success('Мероприятие опубликовано')
     publishModalOpen.value = false
   } finally {
     actionLoading.value = false
@@ -109,7 +109,7 @@ async function doUnpublish() {
   try {
     const updated = await api.events.unpublish(event.value.id)
     event.value = updated
-    toast.success('Жариялау тоқтатылды')
+    toast.success('Публикация снята')
     unpublishModalOpen.value = false
   } finally {
     actionLoading.value = false
@@ -121,7 +121,7 @@ async function doDelete() {
   actionLoading.value = true
   try {
     await api.events.remove(event.value.id)
-    toast.success('Ивент жойылды')
+    toast.success('Мероприятие удалено')
     router.push('/admin/events')
   } finally {
     actionLoading.value = false
@@ -156,15 +156,15 @@ function formatDate(iso: string | null) {
       <div class="flex items-start gap-3">
         <AlertTriangle class="mt-0.5 h-5 w-5 text-danger-500" />
         <div class="flex-1">
-          <h3 class="text-sm font-semibold text-danger-800">Ивент табылмады</h3>
+          <h3 class="text-sm font-semibold text-danger-800">Мероприятие не найдено</h3>
           <p class="mt-1 text-sm text-danger-700">
-            Бұл ивент жойылған немесе сізде оған қолжетім жоқ.
+            Это мероприятие удалено или у вас нет к нему доступа.
           </p>
         </div>
       </div>
       <template #footer>
-        <UiButton variant="outline" size="sm" to="/admin/events">Тізімге қайту</UiButton>
-        <UiButton variant="primary" size="sm" @click="refresh()">Қайта көру</UiButton>
+        <UiButton variant="outline" size="sm" to="/admin/events">Вернуться к списку</UiButton>
+        <UiButton variant="primary" size="sm" @click="refresh()">Повторить</UiButton>
       </template>
     </UiCard>
 
@@ -174,8 +174,8 @@ function formatDate(iso: string | null) {
         :title="event.title"
         :subtitle="event.description || '—'"
         :breadcrumbs="[
-          { label: 'Басты бет', to: '/admin' },
-          { label: 'Ивенттер', to: '/admin/events' },
+          { label: 'Главная', to: '/admin' },
+          { label: 'Мероприятия', to: '/admin/events' },
           { label: event.title },
         ]"
       >
@@ -187,11 +187,11 @@ function formatDate(iso: string | null) {
             @click="refresh()"
           >
             <RefreshCw class="h-4 w-4" :class="pending && 'animate-spin'" />
-            Жаңарту
+            Обновить
           </UiButton>
           <UiButton variant="outline" size="md" :to="`/admin/events/${event.id}/edit`">
             <Edit3 class="h-4 w-4" />
-            Өңдеу
+            Редактировать
           </UiButton>
           <UiButton
             v-if="event.status === 'DRAFT' || event.status === 'ARCHIVED'"
@@ -200,7 +200,7 @@ function formatDate(iso: string | null) {
             @click="publishModalOpen = true"
           >
             <Eye class="h-4 w-4" />
-            Жариялау
+            Опубликовать
           </UiButton>
           <UiButton
             v-else-if="event.status === 'PUBLISHED'"
@@ -209,7 +209,7 @@ function formatDate(iso: string | null) {
             @click="unpublishModalOpen = true"
           >
             <EyeOff class="h-4 w-4" />
-            Жариялауды тоқтату
+            Снять с публикации
           </UiButton>
         </template>
       </PageHeader>
@@ -225,11 +225,11 @@ function formatDate(iso: string | null) {
         </span>
         <span class="text-slate-300">·</span>
         <span class="text-slate-500">
-          <span class="font-medium text-slate-700">Жасалған:</span> {{ formatDate(event.createdAt) }}
+          <span class="font-medium text-slate-700">Создано:</span> {{ formatDate(event.createdAt) }}
         </span>
         <span class="text-slate-300">·</span>
         <span class="text-slate-500">
-          <span class="font-medium text-slate-700">Жаңартылған:</span> {{ formatDate(event.updatedAt) }}
+          <span class="font-medium text-slate-700">Обновлено:</span> {{ formatDate(event.updatedAt) }}
         </span>
       </div>
 
@@ -257,11 +257,11 @@ function formatDate(iso: string | null) {
       <!-- Tab: Overview -->
       <div v-if="activeTab === 'overview'" class="grid gap-5 lg:grid-cols-3">
         <div class="space-y-5 lg:col-span-2">
-          <UiCard title="Сипаттама">
+          <UiCard title="Описание">
             <p v-if="event.description" class="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
               {{ event.description }}
             </p>
-            <p v-else class="text-sm italic text-slate-400">Сипаттама қосылмаған.</p>
+            <p v-else class="text-sm italic text-slate-400">Описание не добавлено.</p>
           </UiCard>
 
           <UiCard title="Спикер">
@@ -274,21 +274,21 @@ function formatDate(iso: string | null) {
                 {{ event.speakerBio }}
               </p>
             </div>
-            <p v-else class="text-sm italic text-slate-400">Спикер көрсетілмеген.</p>
+            <p v-else class="text-sm italic text-slate-400">Спикер не указан.</p>
           </UiCard>
 
-          <UiCard title="Қауіпті аймақ" class="border-danger-200">
+          <UiCard title="Опасная зона" class="border-danger-200">
             <div class="flex items-start justify-between gap-4">
               <div>
-                <p class="text-sm font-medium text-slate-900">Ивентті жою</p>
+                <p class="text-sm font-medium text-slate-900">Удалить мероприятие</p>
                 <p class="mt-1 text-sm text-slate-500">
-                  Ивент, оның барлық сессиялары және аналитикасы біржола жойылады.
-                  Бұл әрекетті қайтару мүмкін емес.
+                  Мероприятие, все его сессии и аналитика будут удалены безвозвратно.
+                  Это действие нельзя отменить.
                 </p>
               </div>
               <UiButton variant="danger" size="sm" @click="deleteModalOpen = true">
                 <Trash2 class="h-4 w-4" />
-                Жою
+                Удалить
               </UiButton>
             </div>
           </UiCard>
@@ -308,7 +308,7 @@ function formatDate(iso: string | null) {
               </div>
             </div>
             <div class="p-4">
-              <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Мұқаба</p>
+              <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Обложка</p>
               <p class="mt-1 break-all text-xs text-slate-500">
                 {{ event.coverImageUrl || '—' }}
               </p>
@@ -318,11 +318,11 @@ function formatDate(iso: string | null) {
           <UiCard title="Мета">
             <dl class="space-y-2 text-sm">
               <div class="flex items-center justify-between">
-                <dt class="text-slate-500">Уақыт белдеуі</dt>
+                <dt class="text-slate-500">Часовой пояс</dt>
                 <dd class="font-medium text-slate-900">{{ event.timezone || '—' }}</dd>
               </div>
               <div class="flex items-center justify-between">
-                <dt class="text-slate-500">Тіл</dt>
+                <dt class="text-slate-500">Язык</dt>
                 <dd class="font-medium text-slate-900">{{ event.language || '—' }}</dd>
               </div>
               <div class="flex items-center justify-between">
@@ -338,11 +338,11 @@ function formatDate(iso: string | null) {
                 class="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800"
               >
                 <ExternalLink class="h-3.5 w-3.5" />
-                Ашық бет
+                Публичная страница
               </NuxtLink>
               <span v-else class="inline-flex items-center gap-1 text-xs text-slate-400">
                 <Globe class="h-3.5 w-3.5" />
-                Жарияланбаған
+                Не опубликовано
               </span>
             </template>
           </UiCard>
@@ -359,12 +359,12 @@ function formatDate(iso: string | null) {
       <UiEmpty
         v-else-if="activeTab === 'timeline'"
         title="Таймлайн"
-        description="Таймлайн әрекеттері сессия деңгейінде басқарылады. Сессиялар табына өтіп, аяқталған LIVE сессияның 'Таймлайн' батырмасын басыңыз."
+        description="Действия таймлайна управляются на уровне сессии. Перейдите на вкладку «Сессии» и нажмите кнопку «Таймлайн» у завершённой LIVE-сессии."
       >
         <template #icon><Clock class="h-5 w-5" /></template>
         <template #actions>
           <UiButton variant="outline" @click="activeTab = 'sessions'">
-            Сессияларға өту
+            Перейти к сессиям
           </UiButton>
         </template>
       </UiEmpty>
@@ -374,58 +374,58 @@ function formatDate(iso: string | null) {
     </template>
 
     <!-- Publish confirm -->
-    <UiModal v-model="publishModalOpen" title="Ивентті жариялау">
+    <UiModal v-model="publishModalOpen" title="Опубликовать мероприятие">
       <p class="text-sm text-slate-600">
-        Жарияланғаннан кейін ивент тенанттың жалпыға ашық тізімінде көрінеді
-        және /event/<span class="font-mono text-slate-900">{{ event?.slug }}</span> мекенжайы арқылы қолжетімді болады.
+        После публикации мероприятие будет видно в публичном списке тенанта
+        и доступно по адресу /event/<span class="font-mono text-slate-900">{{ event?.slug }}</span>.
       </p>
       <template #footer>
         <UiButton variant="outline" :disabled="actionLoading" @click="publishModalOpen = false">
-          Бас тарту
+          Отмена
         </UiButton>
         <UiButton variant="primary" :loading="actionLoading" @click="doPublish">
-          Жариялау
+          Опубликовать
         </UiButton>
       </template>
     </UiModal>
 
     <!-- Unpublish confirm -->
-    <UiModal v-model="unpublishModalOpen" title="Жариялауды тоқтату">
+    <UiModal v-model="unpublishModalOpen" title="Снять с публикации">
       <p class="text-sm text-slate-600">
-        Жариялауды тоқтатқаннан кейін ашық бет қолжетімсіз болады. Ивент қара
-        жобаға айналады, бірақ барлық деректер сақталады.
+        После снятия с публикации публичная страница станет недоступна. Мероприятие
+        вернётся в черновик, но все данные сохранятся.
       </p>
       <template #footer>
         <UiButton variant="outline" :disabled="actionLoading" @click="unpublishModalOpen = false">
-          Бас тарту
+          Отмена
         </UiButton>
         <UiButton variant="primary" :loading="actionLoading" @click="doUnpublish">
-          Тоқтату
+          Снять
         </UiButton>
       </template>
     </UiModal>
 
     <!-- Delete confirm -->
-    <UiModal v-model="deleteModalOpen" title="Ивентті жою" size="md">
+    <UiModal v-model="deleteModalOpen" title="Удалить мероприятие" size="md">
       <div class="space-y-3">
         <div class="flex items-start gap-3 rounded-lg border border-danger-200 bg-danger-50 p-3">
           <AlertTriangle class="mt-0.5 h-5 w-5 shrink-0 text-danger-500" />
           <p class="text-sm text-danger-800">
-            Бұл әрекет қайтарылмайды. Барлық сессиялар, аналитика және чат тарихы
-            жойылады.
+            Это действие нельзя отменить. Все сессии, аналитика и история чата
+            будут удалены.
           </p>
         </div>
         <p class="text-sm text-slate-600">
-          Жалғастыру үшін "Жою" батырмасын басыңыз.
+          Для продолжения нажмите кнопку «Удалить».
         </p>
       </div>
       <template #footer>
         <UiButton variant="outline" :disabled="actionLoading" @click="deleteModalOpen = false">
-          Бас тарту
+          Отмена
         </UiButton>
         <UiButton variant="danger" :loading="actionLoading" @click="doDelete">
           <Trash2 class="h-4 w-4" />
-          Жою
+          Удалить
         </UiButton>
       </template>
     </UiModal>

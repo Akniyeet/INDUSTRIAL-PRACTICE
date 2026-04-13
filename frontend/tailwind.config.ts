@@ -21,18 +21,33 @@ export default <Partial<Config>>{
   theme: {
     extend: {
       colors: {
+        // Primary brand: derived from logo #215CFF
         brand: {
-          50:  '#eef4ff',
-          100: '#dbe6ff',
-          200: '#bdd0ff',
-          300: '#8cadff',
-          400: '#5981ff',
-          500: '#305aff',
-          600: '#1b3ef5',
-          700: '#162fcc',
-          800: '#152aa1',
-          900: '#152580',
-          950: '#0d174d',
+          50:  '#eff3ff',
+          100: '#dbe4ff',
+          200: '#bfcfff',
+          300: '#93adff',
+          400: '#6082ff',
+          500: '#3d63ff',
+          600: '#215CFF', // logo primary
+          700: '#1a4adb',
+          800: '#1c3db2',
+          900: '#1d378c',
+          950: '#142255',
+        },
+        // Accent: derived from logo #FF428D
+        accent: {
+          50:  '#fff1f6',
+          100: '#ffe4ed',
+          200: '#ffcadc',
+          300: '#ff9ebc',
+          400: '#ff6a98',
+          500: '#FF428D', // logo secondary
+          600: '#ed1166',
+          700: '#c80a53',
+          800: '#a80c49',
+          900: '#8f0f42',
+          950: '#520121',
         },
         success: {
           50:  '#ecfdf5',
@@ -54,7 +69,7 @@ export default <Partial<Config>>{
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['"DM Sans"', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       boxShadow: {
         // Soft elevation for cards and popovers — tuned to look crisp on the

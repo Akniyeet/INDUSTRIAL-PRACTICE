@@ -106,8 +106,8 @@ const loading = ref(false)
 const typeLocked = computed(() => props.mode === 'edit')
 
 const typeOptions = [
-  { value: 'LIVE', label: 'LIVE — нақты уақыттағы эфир' },
-  { value: 'AUTO', label: 'AUTO — жазылған сессияны қайта ойнату' },
+  { value: 'LIVE', label: 'LIVE — прямой эфир в реальном времени' },
+  { value: 'AUTO', label: 'AUTO — воспроизведение записанной сессии' },
 ]
 
 const sourceOptions = computed(() =>
@@ -142,34 +142,34 @@ function validate(): boolean {
   for (const k of Object.keys(errors) as (keyof FormState)[]) delete errors[k]
 
   if (!form.startTimeLocal) {
-    errors.startTimeLocal = 'Басталу уақытын таңдаңыз.'
+    errors.startTimeLocal = 'Выберите время начала.'
   } else {
     const ts = new Date(form.startTimeLocal).getTime()
     if (Number.isNaN(ts)) {
-      errors.startTimeLocal = 'Жарамсыз уақыт форматы.'
+      errors.startTimeLocal = 'Недопустимый формат времени.'
     } else if (props.mode === 'create' && ts < Date.now() - 5 * 60_000) {
       // Allow 5-minute grace window so scheduling "right now" works.
-      errors.startTimeLocal = 'Уақыт өткен. Келешек уақытты таңдаңыз.'
+      errors.startTimeLocal = 'Время прошло. Выберите будущее время.'
     }
   }
 
   if (!form.durationMinutes || form.durationMinutes < 1) {
-    errors.durationMinutes = 'Ұзақтығы кем дегенде 1 минут болуы тиіс.'
+    errors.durationMinutes = 'Длительность должна быть не менее 1 минуты.'
   } else if (form.durationMinutes > 24 * 60) {
-    errors.durationMinutes = '24 сағаттан аспауы тиіс.'
+    errors.durationMinutes = 'Не должна превышать 24 часа.'
   }
 
   if (form.type === 'LIVE') {
     if (!form.youtubeUrl.trim()) {
-      errors.youtubeUrl = 'YouTube сілтемесін енгізіңіз.'
+      errors.youtubeUrl = 'Введите ссылку на YouTube.'
     } else if (!YOUTUBE_URL_PATTERN.test(form.youtubeUrl.trim())) {
-      errors.youtubeUrl = 'Жарамсыз YouTube сілтемесі.'
+      errors.youtubeUrl = 'Недопустимая ссылка YouTube.'
     }
   }
 
   if (form.type === 'AUTO') {
     if (!form.sourceLiveSessionId) {
-      errors.sourceLiveSessionId = 'Негізгі LIVE сессияны таңдаңыз.'
+      errors.sourceLiveSessionId = 'Выберите исходную LIVE сессию.'
     }
   }
 
@@ -216,7 +216,7 @@ function buildUpdateBody(): SessionUpdateRequest {
 
 async function onSubmit() {
   if (!validate()) {
-    toast.warning('Формада қателер бар')
+    toast.warning('В форме есть ошибки')
     return
   }
 
@@ -225,11 +225,11 @@ async function onSubmit() {
     let saved: SessionResponse
     if (props.mode === 'create') {
       saved = await api.sessions.create(props.eventId, buildCreateBody())
-      toast.success('Сессия жасалды')
+      toast.success('Сессия создана')
     } else {
       if (!props.initial) throw new Error('Edit mode without initial session')
       saved = await api.sessions.update(props.initial.id, buildUpdateBody())
-      toast.success('Сессия жаңартылды')
+      toast.success('Сессия обновлена')
     }
     emit('submit', saved)
   } catch (err) {
@@ -252,7 +252,7 @@ async function onSubmit() {
     <!-- Type -->
     <div>
       <label class="field-label">
-        Сессия түрі
+        Тип сессии
         <span class="text-danger-600">*</span>
       </label>
       <div class="grid gap-2 sm:grid-cols-2">
@@ -283,7 +283,7 @@ async function onSubmit() {
         </label>
       </div>
       <p v-if="typeLocked" class="field-hint">
-        Сессия түрі жасалғаннан кейін өзгертілмейді.
+        Тип сессии нельзя изменить после создания.
       </p>
     </div>
 
@@ -291,7 +291,7 @@ async function onSubmit() {
     <div class="grid gap-4 sm:grid-cols-2">
       <div>
         <label class="field-label" for="session-start">
-          Басталу уақыты <span class="text-danger-600">*</span>
+          Время начала <span class="text-danger-600">*</span>
         </label>
         <input
           id="session-start"
@@ -302,16 +302,16 @@ async function onSubmit() {
           required
         />
         <p v-if="errors.startTimeLocal" class="field-error">{{ errors.startTimeLocal }}</p>
-        <p v-else class="field-hint">Браузердің уақыт белдеуі бойынша.</p>
+        <p v-else class="field-hint">По часовому поясу браузера.</p>
       </div>
 
       <UiInput
         v-model.number="form.durationMinutes"
         type="number"
-        label="Ұзақтығы (минут)"
+        label="Длительность (минут)"
         placeholder="60"
         :error="errors.durationMinutes"
-        hint="Жоспарланған ұзақтық. Эфир бұдан ерте де, кеш те аяқталуы мүмкін."
+        hint="Запланированная длительность. Эфир может завершиться раньше или позже."
         required
       />
     </div>
@@ -320,13 +320,13 @@ async function onSubmit() {
     <div v-if="form.type === 'LIVE'">
       <UiInput
         v-model="form.youtubeUrl"
-        label="YouTube сілтемесі"
+        label="Ссылка на YouTube"
         placeholder="https://www.youtube.com/watch?v=..."
         :error="errors.youtubeUrl"
         required
       />
       <p v-if="!errors.youtubeUrl" class="field-hint flex items-center gap-1">
-        <Youtube class="h-3 w-3" /> watch, live/ немесе youtu.be форматы қабылданады.
+        <Youtube class="h-3 w-3" /> Принимаются форматы watch, live/ или youtu.be.
       </p>
     </div>
 
@@ -334,16 +334,16 @@ async function onSubmit() {
     <div v-else>
       <UiSelect
         v-model="form.sourceLiveSessionId"
-        label="Негізгі LIVE сессия"
+        label="Исходная LIVE сессия"
         :options="sourceOptions"
-        :placeholder="hasNoSources ? 'Аяқталған LIVE сессиялар жоқ' : 'Таңдаңыз'"
+        :placeholder="hasNoSources ? 'Нет завершённых LIVE сессий' : 'Выберите'"
         :error="errors.sourceLiveSessionId"
         :disabled="hasNoSources"
         required
       />
       <p v-if="hasNoSources" class="field-hint flex items-start gap-1 text-warning-700">
         <AlertCircle class="mt-0.5 h-3 w-3 shrink-0" />
-        AUTO сессия жасау үшін алдымен LIVE сессияны аяқтау керек. Оның видео мен чаты replay үшін қайнар көз болады.
+        Для создания AUTO сессии сначала необходимо завершить LIVE сессию. Её видео и чат станут источником для воспроизведения.
       </p>
     </div>
 
@@ -351,13 +351,13 @@ async function onSubmit() {
     <div class="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
       <UiButton variant="ghost" type="button" @click="emit('cancel')">
         <ArrowLeft class="h-4 w-4" />
-        Қайту
+        Назад
       </UiButton>
 
       <div class="flex items-center gap-2">
         <UiButton variant="outline" type="button" :disabled="loading" @click="emit('cancel')">
           <X class="h-4 w-4" />
-          Бас тарту
+          Отмена
         </UiButton>
         <UiButton
           variant="primary"
@@ -366,7 +366,7 @@ async function onSubmit() {
           :disabled="hasNoSources"
         >
           <Save class="h-4 w-4" />
-          {{ submitLabel ?? (mode === 'create' ? 'Жасау' : 'Сақтау') }}
+          {{ submitLabel ?? (mode === 'create' ? 'Создать' : 'Сохранить') }}
         </UiButton>
       </div>
     </div>

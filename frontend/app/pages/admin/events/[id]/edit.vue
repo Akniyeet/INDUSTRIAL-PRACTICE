@@ -27,7 +27,7 @@ const { data: event, pending, error } = useAsyncData<EventResponse>(
 )
 
 useHead({
-  title: () => (event.value ? `${event.value.title} — өңдеу` : 'Өңдеу — Webizon'),
+  title: () => (event.value ? `${event.value.title} — редактирование` : 'Редактирование — Webizon'),
 })
 
 function onSaved(updated: EventResponse) {
@@ -42,13 +42,13 @@ function onCancel() {
 <template>
   <div class="mx-auto max-w-3xl">
     <PageHeader
-      :title="event?.title ? `${event.title} — өңдеу` : 'Ивентті өңдеу'"
-      subtitle="Slug өзгертілмейді. Өзгертулер сақталғаннан кейін бірден күшіне енеді."
+      :title="event?.title ? `${event.title} — редактирование` : 'Редактировать мероприятие'"
+      subtitle="Slug не изменяется. Изменения вступают в силу сразу после сохранения."
       :breadcrumbs="[
-        { label: 'Басты бет', to: '/admin' },
-        { label: 'Ивенттер', to: '/admin/events' },
+        { label: 'Главная', to: '/admin' },
+        { label: 'Мероприятия', to: '/admin/events' },
         { label: event?.title || '...', to: `/admin/events/${eventId}` },
-        { label: 'Өңдеу' },
+        { label: 'Редактирование' },
       ]"
     />
 
@@ -63,14 +63,14 @@ function onCancel() {
       <div class="flex items-start gap-3">
         <AlertTriangle class="mt-0.5 h-5 w-5 text-danger-500" />
         <div>
-          <h3 class="text-sm font-semibold text-danger-800">Ивент табылмады</h3>
+          <h3 class="text-sm font-semibold text-danger-800">Мероприятие не найдено</h3>
           <p class="mt-1 text-sm text-danger-700">
-            Бұл ивент жойылған немесе сізде оған қолжетім жоқ.
+            Это мероприятие удалено или у вас нет к нему доступа.
           </p>
         </div>
       </div>
       <template #footer>
-        <UiButton variant="outline" size="sm" to="/admin/events">Тізімге қайту</UiButton>
+        <UiButton variant="outline" size="sm" to="/admin/events">Вернуться к списку</UiButton>
       </template>
     </UiCard>
 

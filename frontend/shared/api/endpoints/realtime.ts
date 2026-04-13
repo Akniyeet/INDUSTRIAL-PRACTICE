@@ -1,5 +1,5 @@
 import type { ApiClient } from '../client'
-import type { RealtimeSubscribeTokenResponse, RealtimeTokenResponse, UUID } from '../types'
+import type { RealtimeSubscribeTokenResponse, RealtimeTokenResponse } from '../types'
 
 /**
  * Short-lived Centrifugo token minter at {@code /api/v1/realtime/*}.
@@ -21,13 +21,6 @@ export class RealtimeApi {
     return this.client.post<RealtimeSubscribeTokenResponse>(
       '/v1/realtime/subscribe-token',
       { channel },
-    )
-  }
-
-  /** Convenience — mint a subscribe token for every channel of a session. */
-  mintRoomBundle(sessionId: UUID) {
-    return this.client.post<RealtimeSubscribeTokenResponse[]>(
-      `/v1/realtime/sessions/${sessionId}/subscribe-tokens`,
     )
   }
 }

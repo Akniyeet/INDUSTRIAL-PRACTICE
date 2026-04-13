@@ -13,7 +13,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-useHead({ title: 'Жаңа ивент — Webizon' })
+useHead({ title: 'Новое мероприятие — Webizon' })
 
 const router = useRouter()
 
@@ -29,12 +29,12 @@ function onCancel() {
 <template>
   <div class="mx-auto max-w-3xl">
     <PageHeader
-      title="Жаңа ивент"
-      subtitle="Жариялау алдында барлық негізгі деректерді толтырыңыз."
+      title="Новое мероприятие"
+      subtitle="Заполните основную информацию перед публикацией."
       :breadcrumbs="[
-        { label: 'Басты бет', to: '/admin' },
-        { label: 'Ивенттер', to: '/admin/events' },
-        { label: 'Жаңа' },
+        { label: 'Главная', to: '/admin' },
+        { label: 'Мероприятия', to: '/admin/events' },
+        { label: 'Новое' },
       ]"
     />
 
