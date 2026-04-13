@@ -10,10 +10,7 @@ import type { EventResponse, SessionResponse, SessionStatus, UUID } from '#share
 import {
   Radio,
   History,
-  Calendar,
   RefreshCw,
-  Play,
-  Square,
   ExternalLink,
   BarChart3,
   Download,

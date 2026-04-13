@@ -307,6 +307,9 @@ async function onSubmit() {
           antiSpamEnabled: true,
           welcomeMessage: welcomeMessage.value || undefined,
           chatMode: chatEnabled.value ? 'EVERYONE' : 'DISABLED',
+          showParticipantCount: showParticipantCount.value,
+          showParticipantNames: showParticipantNames.value,
+          blockPhoneNumbers: blockPhoneNumbers.value,
         })
       } catch { /* non-critical */ }
 

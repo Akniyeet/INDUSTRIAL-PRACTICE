@@ -29,7 +29,6 @@ import {
   Trash2,
   ToggleLeft,
   ToggleRight,
-  Play,
   X,
   Check,
 } from 'lucide-vue-next'

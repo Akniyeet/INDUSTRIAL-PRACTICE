@@ -11,11 +11,7 @@ import type { Config } from 'tailwindcss'
 export default <Partial<Config>>{
   content: [
     './app/**/*.{vue,ts}',
-    './components/**/*.{vue,ts}',
-    './layouts/**/*.vue',
-    './pages/**/*.vue',
-    './composables/**/*.ts',
-    './stores/**/*.ts',
+    './shared/**/*.ts',
     './nuxt.config.ts',
   ],
   theme: {
@@ -84,25 +80,6 @@ export default <Partial<Config>>{
       },
       transitionTimingFunction: {
         'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
-      },
-      keyframes: {
-        'fade-in': {
-          from: { opacity: '0' },
-          to:   { opacity: '1' },
-        },
-        'slide-up': {
-          from: { opacity: '0', transform: 'translateY(8px)' },
-          to:   { opacity: '1', transform: 'translateY(0)' },
-        },
-        'pulse-ring': {
-          '0%':   { transform: 'scale(0.75)', opacity: '0.8' },
-          '100%': { transform: 'scale(1.75)', opacity: '0' },
-        },
-      },
-      animation: {
-        'fade-in':  'fade-in 200ms ease-out',
-        'slide-up': 'slide-up 220ms cubic-bezier(0.16, 1, 0.3, 1)',
-        'pulse-ring': 'pulse-ring 1.6s ease-out infinite',
       },
     },
   },

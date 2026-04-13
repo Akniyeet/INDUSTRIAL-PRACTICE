@@ -6,7 +6,7 @@
  */
 import {
   Plus, RefreshCw, Copy, Check, Play, Square, Eye, BarChart3,
-  Edit3, ExternalLink, Archive, Radio, Calendar, Users,
+  Edit3, ExternalLink, Archive, Calendar,
 } from 'lucide-vue-next'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { format, formatDistanceToNow } from 'date-fns'

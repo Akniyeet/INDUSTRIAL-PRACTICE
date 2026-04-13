@@ -5,7 +5,7 @@
  */
 import {
   Activity, Server, Database, Zap, Wifi, AlertTriangle,
-  RefreshCw, CheckCircle2, XCircle, Clock, Cpu, HardDrive,
+  RefreshCw, CheckCircle2, XCircle, Clock, HardDrive,
   Radio, Shield, Globe, MessageSquare,
 } from 'lucide-vue-next'
 import { ref, onMounted, onBeforeUnmount } from 'vue'

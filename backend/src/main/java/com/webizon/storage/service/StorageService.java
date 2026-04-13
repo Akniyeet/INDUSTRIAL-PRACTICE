@@ -285,24 +285,6 @@ public class StorageService {
     }
 
     // ------------------------------------------------------------------
-    // Linkage (called by domain services once they decide to bind)
-    // ------------------------------------------------------------------
-
-    /** Bind an UPLOADED asset to an event (e.g. set as cover). */
-    public FileAsset linkToEvent(UUID assetId, UUID eventId) {
-        FileAsset asset = requireUploaded(assetId);
-        asset.setLinkedEventId(eventId);
-        return asset;
-    }
-
-    /** Bind an UPLOADED asset to a CTA (e.g. downloadable material). */
-    public FileAsset linkToCta(UUID assetId, UUID ctaId) {
-        FileAsset asset = requireUploaded(assetId);
-        asset.setLinkedCtaId(ctaId);
-        return asset;
-    }
-
-    // ------------------------------------------------------------------
     // Metadata lookup
     // ------------------------------------------------------------------
 

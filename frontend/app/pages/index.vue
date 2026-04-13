@@ -13,17 +13,12 @@ import {
   Shield,
   RefreshCw,
   MousePointerClick,
-  PlayCircle,
   MessageSquare,
-  Megaphone,
   CheckCircle2,
   ArrowRight,
   Radio,
-  GraduationCap,
-  Briefcase,
   Sparkles,
   Globe,
-  Clock,
   TrendingUp,
 } from 'lucide-vue-next'
 

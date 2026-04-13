@@ -9,14 +9,10 @@ import {
   Plus,
   ArrowUpRight,
   ArrowDownLeft,
-  TrendingUp,
   Radio,
   RefreshCw,
-  Calendar,
   CreditCard,
-  BarChart3,
   Eye,
-  Users,
 } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 import { format } from 'date-fns'
@@ -87,10 +83,6 @@ function formatMoney(amount: number) {
 
 function formatDate(iso: string) {
   try { return format(new Date(iso), 'dd.MM.yyyy HH:mm') } catch { return iso }
-}
-
-function formatDateShort(iso: string) {
-  try { return format(new Date(iso), 'dd.MM') } catch { return iso }
 }
 
 // Top-up handler
