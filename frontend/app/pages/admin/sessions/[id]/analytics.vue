@@ -147,6 +147,11 @@ function formatDuration(seconds: number) {
           <!-- CTA CTR table -->
           <CtaCtrTable :rows="report.ctaCtr" />
         </div>
+
+        <!-- AI Lead Scoring -->
+        <UiCard class="bg-slate-950 border-violet-800/30">
+          <AiLeadScorePanel :session-id="sessionId" />
+        </UiCard>
       </div>
 
       <!-- No report yet -->

@@ -312,6 +312,40 @@ services:
     networks:
       - webizon-net
 
+  # ==========================================================================
+  # MONITORING
+  # ==========================================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: webizon-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - webizon-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: webizon-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-webizon}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3002:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - webizon-net
+
 volumes:
   postgres_data:
   clickhouse_data:
@@ -321,6 +355,8 @@ volumes:
   kafka_data:
   minio_data:
   keycloak_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   webizon-net:

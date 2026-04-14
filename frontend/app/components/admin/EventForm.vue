@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 6-step Event Creation Wizard — EDUSER-level UX.
+ * 6-step Event Creation Wizard.
  *
  * Steps:
  *  1. Информация — title, desc, speaker, cover upload, youtube, datetime, timezone, lang, slug
@@ -12,8 +12,13 @@
  */
 import {
   ArrowLeft, ArrowRight, Save, Check, FileText, MessageSquare, Megaphone,
-  Shield, Globe, Eye, Image as ImageIcon, User, Upload, X, Plus, ChevronDown,
-  ChevronUp, Copy, Search, Trash2, GripVertical,
+  Shield, Globe, Eye, Upload, X, Plus, ChevronDown,
+  ChevronUp, Copy, Search, Trash2,
+  // Icon picker icons for benefits
+  Sparkles, Lightbulb, Target, Rocket, Trophy, Star,
+  Heart, Zap, BookOpen, GraduationCap, Users, Brain,
+  Puzzle, TrendingUp, Award, Clock, CheckCircle,
+  MessageCircle, Play, Code, Palette, Laptop,
 } from 'lucide-vue-next'
 import { ref, reactive, computed, watch } from 'vue'
 import type { EventCreateRequest, EventResponse, EventUpdateRequest } from '#shared/api/types'
@@ -106,12 +111,18 @@ const modSearchResults = ref<Moderator[]>([])
 const copiedUrl = ref(false)
 
 // Step 5
-interface LandingItem { title: string; desc: string }
+const benefitIcons = [
+  'Sparkles', 'Lightbulb', 'Target', 'Rocket', 'Trophy', 'Star',
+  'Heart', 'Zap', 'BookOpen', 'GraduationCap', 'Users', 'Globe',
+  'Shield', 'Laptop', 'Brain', 'Puzzle', 'TrendingUp', 'Award',
+  'Clock', 'CheckCircle', 'MessageCircle', 'Play', 'Code', 'Palette',
+]
+interface LandingItem { title: string; desc: string; icon?: string }
 const benefitsTitle = ref('Что вы узнаете')
 const benefits = ref<LandingItem[]>([
-  { title: 'Практические знания', desc: 'Реальные навыки, которые сразу применяете' },
-  { title: 'Живое общение', desc: 'Задавайте вопросы спикеру в реальном времени' },
-  { title: 'Бесплатные материалы', desc: 'Получите чек-лист и дополнительные материалы' },
+  { title: 'Практические знания', desc: 'Реальные навыки, которые сразу применяете', icon: 'Lightbulb' },
+  { title: 'Живое общение', desc: 'Задавайте вопросы спикеру в реальном времени', icon: 'MessageCircle' },
+  { title: 'Бесплатные материалы', desc: 'Получите чек-лист и дополнительные материалы', icon: 'BookOpen' },
 ])
 const timelineTitle = ref('Программа эфира')
 const timelineSubtitle = ref('Пошаговый план урока')
@@ -248,19 +259,29 @@ function copyEventUrl() {
   setTimeout(() => copiedUrl.value = false, 2000)
 }
 
+let modSearchTimer: ReturnType<typeof setTimeout> | null = null
 function searchModerators() {
-  const q = modSearchQuery.value.trim().toLowerCase()
-  if (!q) { modSearchResults.value = []; return }
-  // Mock search — replace with real API later
-  const mockUsers: Moderator[] = [
-    { id: 'u1', name: 'Алия Нурланова', email: 'aliya@example.com' },
-    { id: 'u2', name: 'Тимур Касымов', email: 'timur@example.com' },
-    { id: 'u3', name: 'Сания Жунусова', email: 'saniya@example.com' },
-    { id: 'u4', name: 'Ерлан Муратов', email: 'erlan@example.com' },
-  ]
-  modSearchResults.value = mockUsers
-    .filter(u => (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-      && !moderators.value.some(m => m.id === u.id))
+  const q = modSearchQuery.value.trim()
+  if (q.length < 2) { modSearchResults.value = []; return }
+  if (modSearchTimer) clearTimeout(modSearchTimer)
+  modSearchTimer = setTimeout(async () => {
+    try {
+      const { apiBase } = useRuntimeConfig().public
+      const results = await ($fetch as Function)('/v1/users/search', {
+        baseURL: apiBase as string,
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          'X-Tenant-Id': auth.tenantId ?? '',
+        },
+        query: { query: q, limit: 10 },
+      }) as Array<{ id: string; fullName: string | null; email: string }>
+      modSearchResults.value = results
+        .map(u => ({ id: u.id, name: u.fullName || u.email, email: u.email }))
+        .filter(u => !moderators.value.some(m => m.id === u.id))
+    } catch {
+      modSearchResults.value = []
+    }
+  }, 300)
 }
 
 function addModerator(user: Moderator) {
@@ -358,17 +379,12 @@ async function onSubmit() {
 <template>
   <div>
     <!-- ═══ Stepper ══════════════════════════════════════════════════════ -->
-    <div class="mb-8 flex items-center justify-between">
-      <button
-        v-for="(step, i) in steps"
-        :key="step.id"
-        class="group flex items-center gap-3"
-        :class="i < steps.length - 1 ? 'flex-1' : ''"
-        @click="goTo(step.id)"
-      >
-        <div class="flex flex-col items-center">
-          <div
-            class="flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold transition-all"
+    <div class="mb-8">
+      <!-- Icon + connector row -->
+      <div class="flex items-center">
+        <template v-for="(step, i) in steps" :key="step.id">
+          <button
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-all"
             :class="currentStep === step.id
               ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/25'
               : step.id < currentStep
@@ -376,16 +392,30 @@ async function onSubmit() {
                 : step.id <= maxVisited
                   ? 'border-slate-300 bg-white text-slate-500 cursor-pointer hover:border-brand-300'
                   : 'border-slate-200 bg-slate-50 text-slate-300 cursor-default'"
+            type="button"
+            @click="goTo(step.id)"
           >
             <Check v-if="step.id < currentStep" class="h-4 w-4" />
             <component :is="step.icon" v-else class="h-4 w-4" />
+          </button>
+          <div
+            v-if="i < steps.length - 1"
+            class="mx-2 h-0.5 flex-1 rounded-full transition-colors"
+            :class="step.id < currentStep ? 'bg-emerald-500' : 'bg-slate-200'"
+          />
+        </template>
+      </div>
+      <!-- Label row (md+) -->
+      <div class="mt-2 hidden md:flex items-start">
+        <template v-for="(step, i) in steps" :key="step.id">
+          <div class="flex w-10 shrink-0 justify-center">
+            <span class="whitespace-nowrap text-[11px] font-medium" :class="currentStep === step.id ? 'text-brand-600' : 'text-slate-400'">
+              {{ step.title }}
+            </span>
           </div>
-          <span class="mt-1.5 hidden text-[11px] font-medium md:block" :class="currentStep === step.id ? 'text-brand-600' : 'text-slate-400'">
-            {{ step.title }}
-          </span>
-        </div>
-        <div v-if="i < steps.length - 1" class="mx-2 hidden h-0.5 flex-1 rounded-full md:block" :class="step.id < currentStep ? 'bg-emerald-500' : 'bg-slate-200'" />
-      </button>
+          <div v-if="i < steps.length - 1" class="mx-2 flex-1" />
+        </template>
+      </div>
     </div>
 
     <form @submit.prevent="currentStep === 6 ? onSubmit() : next()">
@@ -444,7 +474,7 @@ async function onSubmit() {
               <UiInput v-model="youtubeUrl" label="YouTube URL" placeholder="https://youtube.com/live/..." />
             </div>
 
-            <div class="grid gap-5 sm:grid-cols-3">
+            <div class="grid gap-5 sm:grid-cols-2">
               <div>
                 <label class="mb-1.5 block text-sm font-medium text-slate-700">Часовой пояс</label>
                 <select v-model="timezone" class="input-base">
@@ -457,7 +487,6 @@ async function onSubmit() {
                   <option v-for="l in languageOptions" :key="l.value" :value="l.value">{{ l.label }}</option>
                 </select>
               </div>
-              <UiInput v-model="slug" label="Slug (URL)" placeholder="my-event" :error="errors.slug" :disabled="mode === 'edit'" @input="slugTouched = true" />
             </div>
           </div>
         </UiCard>
@@ -471,16 +500,29 @@ async function onSubmit() {
           <div class="grid gap-5">
             <!-- Toggles -->
             <div class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <label v-for="toggle in [
-                { model: chatEnabled, label: 'Чат включён' },
-                { model: allowLinks, label: 'Разрешить ссылки' },
-                { model: showParticipantCount, label: 'Показывать количество зрителей' },
-                { model: showParticipantNames, label: 'Показывать имена участников' },
-                { model: premoderationEnabled, label: 'Премодерация сообщений' },
-                { model: blockPhoneNumbers, label: 'Блокировать телефонные номера' },
-              ]" :key="toggle.label" class="flex items-center gap-3 text-sm text-slate-700">
-                <input :checked="toggle.model" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" @change="toggle.model = ($event.target as HTMLInputElement).checked" />
-                {{ toggle.label }}
+              <label class="flex items-center gap-3 text-sm text-slate-700">
+                <input v-model="chatEnabled" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                Чат включён
+              </label>
+              <label class="flex items-center gap-3 text-sm text-slate-700">
+                <input v-model="allowLinks" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                Разрешить ссылки
+              </label>
+              <label class="flex items-center gap-3 text-sm text-slate-700">
+                <input v-model="showParticipantCount" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                Показывать количество зрителей
+              </label>
+              <label class="flex items-center gap-3 text-sm text-slate-700">
+                <input v-model="showParticipantNames" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                Показывать имена участников
+              </label>
+              <label class="flex items-center gap-3 text-sm text-slate-700">
+                <input v-model="premoderationEnabled" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                Премодерация сообщений
+              </label>
+              <label class="flex items-center gap-3 text-sm text-slate-700">
+                <input v-model="blockPhoneNumbers" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                Блокировать телефонные номера
               </label>
             </div>
 
@@ -575,15 +617,30 @@ async function onSubmit() {
             <p class="mt-0.5 text-sm text-slate-500">Публичная ссылка и команда модерации.</p>
           </template>
           <div class="grid gap-5">
-            <!-- Public URL -->
-            <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-700">Публичная ссылка</label>
-              <div class="flex items-center gap-2">
-                <div class="flex-1 truncate rounded-lg bg-slate-50 px-3 py-2.5 font-mono text-xs text-brand-600">{{ eventUrl }}</div>
-                <button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-brand-300 hover:text-brand-600" @click="copyEventUrl">
-                  <Check v-if="copiedUrl" class="h-4 w-4 text-emerald-500" />
-                  <Copy v-else class="h-4 w-4" />
-                </button>
+            <!-- Public URL + Slug -->
+            <div class="space-y-3">
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-slate-700">Публичная ссылка</label>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1 truncate rounded-lg bg-slate-50 px-3 py-2.5 font-mono text-xs text-brand-600">{{ eventUrl }}</div>
+                  <button type="button" class="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-brand-300 hover:text-brand-600" @click="copyEventUrl">
+                    <Check v-if="copiedUrl" class="h-4 w-4 text-emerald-500" />
+                    <Copy v-else class="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <UiInput
+                  v-model="slug"
+                  label="Slug (URL-путь)"
+                  placeholder="my-event"
+                  :error="errors.slug"
+                  :disabled="mode === 'edit'"
+                  @input="slugTouched = true"
+                />
+                <p class="mt-1.5 text-xs text-slate-400">
+                  Только латинские буквы, цифры и дефис — например <span class="font-mono">besplatnyy-urok</span>. Без пробелов. Генерируется автоматически из названия.
+                </p>
               </div>
             </div>
 
@@ -641,13 +698,37 @@ async function onSubmit() {
               </template>
               <div class="grid gap-4">
                 <UiInput v-model="benefitsTitle" label="Заголовок раздела" />
-                <div v-for="(b, i) in benefits" :key="i" class="flex items-start gap-3 rounded-lg border border-slate-200 p-3">
-                  <span class="mt-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand-50 text-[10px] font-bold text-brand-600">{{ String(i + 1).padStart(2, '0') }}</span>
-                  <div class="flex-1 space-y-2">
-                    <input v-model="b.title" class="input-base" placeholder="Заголовок" :maxlength="60" />
-                    <input v-model="b.desc" class="input-base text-xs" placeholder="Описание (до 150 символов)" :maxlength="150" />
+                <div v-for="(b, i) in benefits" :key="i" class="rounded-lg border border-slate-200 p-3">
+                  <div class="flex items-start gap-3">
+                    <!-- Icon picker -->
+                    <div class="relative mt-1 shrink-0">
+                      <button
+                        type="button"
+                        class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-brand-50 text-brand-600 transition hover:bg-brand-100"
+                        @click="b._iconOpen = !b._iconOpen"
+                      >
+                        <component :is="(b.icon || 'Sparkles')" class="h-4 w-4" />
+                      </button>
+                      <!-- Icon dropdown -->
+                      <div v-if="b._iconOpen" class="absolute left-0 top-full z-20 mt-1 grid w-56 grid-cols-6 gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+                        <button
+                          v-for="ic in benefitIcons"
+                          :key="ic"
+                          type="button"
+                          class="flex h-8 w-8 items-center justify-center rounded-lg transition"
+                          :class="b.icon === ic ? 'bg-brand-100 text-brand-600' : 'text-slate-500 hover:bg-slate-100'"
+                          @click="b.icon = ic; b._iconOpen = false"
+                        >
+                          <component :is="ic" class="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div class="flex-1 space-y-2">
+                      <input v-model="b.title" class="input-base" placeholder="Заголовок" :maxlength="60" />
+                      <input v-model="b.desc" class="input-base text-xs" placeholder="Описание (до 150 символов)" :maxlength="150" />
+                    </div>
+                    <button type="button" class="mt-1 rounded p-1 text-slate-400 hover:text-red-500" @click="removeBenefit(i)"><Trash2 class="h-3.5 w-3.5" /></button>
                   </div>
-                  <button type="button" class="mt-1 rounded p-1 text-slate-400 hover:text-red-500" @click="removeBenefit(i)"><Trash2 class="h-3.5 w-3.5" /></button>
                 </div>
                 <button type="button" class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 py-2 text-xs font-medium text-slate-500 hover:border-brand-400 hover:text-brand-600" @click="addBenefit"><Plus class="h-3.5 w-3.5" /> Добавить</button>
               </div>
@@ -684,7 +765,7 @@ async function onSubmit() {
                 <h4 class="text-sm font-bold text-slate-900">{{ benefitsTitle }}</h4>
                 <div class="mt-3 grid grid-cols-2 gap-2">
                   <div v-for="(b, i) in benefits" :key="i" class="rounded-lg bg-slate-50 p-2.5">
-                    <p class="text-[10px] font-bold text-brand-600">{{ String(i + 1).padStart(2, '0') }}</p>
+                    <component :is="b.icon || 'Sparkles'" class="h-4 w-4 text-brand-600 mb-1" />
                     <p class="text-[11px] font-semibold text-slate-800">{{ b.title || 'Заголовок' }}</p>
                     <p class="mt-0.5 text-[10px] text-slate-500">{{ b.desc || 'Описание' }}</p>
                   </div>

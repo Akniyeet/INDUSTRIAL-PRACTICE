@@ -8,6 +8,7 @@ export interface AuthUser {
   tenantId: string | null
   tenantSlug: string | null
   avatarUrl?: string | null
+  isPlatformAdmin?: boolean
 }
 
 export interface AuthState {
@@ -39,10 +40,11 @@ export const useAuthStore = defineStore('auth', {
   }),
 
   getters: {
-    isAuthenticated: (s): boolean => !!s.token && (s.expiresAt ?? 0) > Date.now(),
-    tenantId:        (s): string | null => s.user?.tenantId ?? null,
-    tenantSlug:      (s): string | null => s.user?.tenantSlug ?? null,
-    hasRole:         (s) => (role: string): boolean => s.user?.role === role,
+    isAuthenticated:  (s): boolean => !!s.token && (s.expiresAt ?? 0) > Date.now(),
+    tenantId:         (s): string | null => s.user?.tenantId ?? null,
+    tenantSlug:       (s): string | null => s.user?.tenantSlug ?? null,
+    hasRole:          (s) => (role: string): boolean => s.user?.role === role,
+    isPlatformAdmin:  (s): boolean => s.user?.isPlatformAdmin === true,
   },
 
   actions: {
@@ -173,13 +175,14 @@ export const useAuthStore = defineStore('auth', {
         refreshToken: tokens.refresh_token,
         expiresAt:    Date.now() + tokens.expires_in * 1000,
         user: {
-          id:         bootstrap.user.id,
-          email:      bootstrap.user.email,
-          fullName:   bootstrap.user.fullName,
-          avatarUrl:  bootstrap.user.avatarUrl,
-          role:       membership?.role ?? 'participant',
-          tenantId:   membership?.tenantId ?? null,
-          tenantSlug: membership?.tenantSlug ?? null,
+          id:             bootstrap.user.id,
+          email:          bootstrap.user.email,
+          fullName:       bootstrap.user.fullName,
+          avatarUrl:      bootstrap.user.avatarUrl,
+          role:           membership?.role ?? 'participant',
+          tenantId:       membership?.tenantId ?? null,
+          tenantSlug:     membership?.tenantSlug ?? null,
+          isPlatformAdmin: (bootstrap.user as any).platformAdmin === true,
         },
       })
     },

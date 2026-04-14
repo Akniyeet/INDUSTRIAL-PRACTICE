@@ -45,14 +45,19 @@ public class TenantContextFilter extends OncePerRequestFilter {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth instanceof JwtAuthenticationToken jwtAuth) {
                 Jwt jwt = jwtAuth.getToken();
+                // Primary source: JWT claim (set by Keycloak protocol mapper in production)
                 String tenantIdRaw = jwt.getClaimAsString(TENANT_CLAIM);
+                // Fallback: X-Tenant-Id header (used when Keycloak mapper is not configured)
+                if (tenantIdRaw == null || tenantIdRaw.isBlank()) {
+                    tenantIdRaw = request.getHeader("X-Tenant-Id");
+                }
                 if (tenantIdRaw != null && !tenantIdRaw.isBlank()) {
                     try {
                         UUID tenantId = UUID.fromString(tenantIdRaw);
                         TenantContext.set(tenantId);
                         MDC.put(MDC_TENANT_KEY, tenantId.toString());
                     } catch (IllegalArgumentException ex) {
-                        log.warn("Invalid tenant_id claim in JWT: '{}'", tenantIdRaw);
+                        log.warn("Invalid tenant_id in JWT claim or X-Tenant-Id header: '{}'", tenantIdRaw);
                     }
                 }
 

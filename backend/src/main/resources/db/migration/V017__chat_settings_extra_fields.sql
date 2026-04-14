@@ -1,4 +1,4 @@
--- V017 :: Additional chat settings fields for EDUSER-level wizard.
+-- V017 :: Additional chat settings fields for the event wizard.
 
 ALTER TABLE event_chat_settings
     ADD COLUMN IF NOT EXISTS forbidden_words TEXT[] NOT NULL DEFAULT '{}',

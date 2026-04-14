@@ -39,6 +39,8 @@ export interface ApiClientOptions {
   baseURL: string
   /** Returns the current access token, or null if unauthenticated. */
   getToken: () => string | null
+  /** Returns the current tenant UUID, or null. Sent as X-Tenant-Id header. */
+  getTenantId?: () => string | null
   /** Invoked with every normalised error. Used for toast + Sentry wiring. */
   onError?: (err: ApiError) => void
 }
@@ -54,6 +56,10 @@ export class ApiClient {
     }
     if (token) {
       headers.Authorization = `Bearer ${token}`
+    }
+    const tenantId = this.opts.getTenantId?.()
+    if (tenantId) {
+      headers['X-Tenant-Id'] = tenantId
     }
     if (options.body !== undefined && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json'

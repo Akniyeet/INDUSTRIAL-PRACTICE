@@ -493,7 +493,7 @@ CREATE TABLE chat_message_moderation (
 - Webhook receivers (billing): `POST /api/v1/webhooks/{provider}` (verified by HMAC signature, not JWT)
 
 ### Participant auth
-- Participants are **real users**. No anonymous viewing. Enforced consistently with EDUSER's principle.
+- Participants are **real users**. No anonymous viewing. Enforced consistently with the platform's principle.
 - However, **signup friction is minimized**: email-only magic link signup is supported for participants (click link → instantly a Webizon account, can upgrade to full account later)
 - This avoids requiring password creation to join a webinar while still getting a unique `profile_id`
 

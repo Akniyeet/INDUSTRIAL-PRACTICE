@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Admin → Events list (EDUSER-style UX).
+ * Admin → Events list.
  *
  * Filter tabs, event cards with covers, live controls, action buttons.
  */
@@ -188,37 +188,30 @@ function formatDate(iso: string) {
 
 <template>
   <div class="space-y-5">
-    <PageHeader
-      title="Мероприятия"
-      :breadcrumbs="[{ label: 'Главная', to: '/admin' }, { label: 'Мероприятия' }]"
-    >
-      <template #actions>
+    <!-- Filter tabs + action buttons in one row -->
+    <div class="flex items-center gap-3">
+      <div class="flex flex-1 gap-2 overflow-x-auto no-scrollbar">
+        <button
+          v-for="f in filters"
+          :key="f.key"
+          class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-150"
+          :class="activeFilter === f.key
+            ? 'border-brand-600 bg-brand-600 text-white'
+            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'"
+          @click="activeFilter = f.key"
+        >
+          {{ f.label }}
+          <span class="text-xs" :class="activeFilter === f.key ? 'text-white/70' : 'text-slate-400'">{{ f.count }}</span>
+        </button>
+      </div>
+      <div class="flex shrink-0 items-center gap-2">
         <UiButton variant="outline" size="sm" :disabled="loading" @click="refresh">
           <RefreshCw class="h-4 w-4" :class="loading && 'animate-spin'" />
         </UiButton>
         <UiButton variant="primary" to="/admin/events/create">
           <Plus class="h-4 w-4" /> Новое мероприятие
         </UiButton>
-      </template>
-    </PageHeader>
-
-    <!-- Filter tabs -->
-    <div class="flex gap-2 overflow-x-auto no-scrollbar">
-      <button
-        v-for="f in filters"
-        :key="f.key"
-        class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all duration-150"
-        :class="activeFilter === f.key
-          ? 'bg-brand-600 text-white shadow-sm'
-          : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-900'"
-        @click="activeFilter = f.key"
-      >
-        {{ f.label }}
-        <span
-          class="text-xs"
-          :class="activeFilter === f.key ? 'text-white/70' : 'text-slate-400'"
-        >{{ f.count }}</span>
-      </button>
+      </div>
     </div>
 
     <!-- Loading -->
@@ -364,9 +357,6 @@ function formatDate(iso: string) {
         <p class="text-base font-semibold text-slate-900">Мероприятий пока нет</p>
         <p class="mt-1 text-sm text-slate-500">Создайте первое мероприятие, чтобы начать</p>
       </div>
-      <UiButton variant="primary" to="/admin/events/create">
-        <Plus class="h-4 w-4" /> Новое мероприятие
-      </UiButton>
     </div>
   </div>
 </template>

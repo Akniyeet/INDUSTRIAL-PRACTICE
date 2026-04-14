@@ -47,11 +47,11 @@ const loading = ref(true)
 async function refresh() {
   loading.value = true
   try {
-    const evts = await api.events.list()
-    events.value = evts
+    const page = await api.events.list()
+    events.value = page.content
     const allSessions: SessionWithEvent[] = []
     await Promise.all(
-      evts.map(async (ev: EventResponse) => {
+      page.content.map(async (ev: EventResponse) => {
         try {
           const ss = await api.sessions.listByEvent(ev.id)
           for (const s of ss) {
@@ -140,12 +140,9 @@ const shortcuts = [
 
 <template>
   <div class="space-y-6">
-    <!-- Header -->
+    <!-- Greeting + refresh -->
     <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-semibold text-slate-900">Привет, {{ displayName }}</h1>
-        <p class="mt-1 text-sm text-slate-500">Панель управления Webizon</p>
-      </div>
+      <p class="text-sm text-slate-600">Привет, <span class="font-medium text-slate-900">{{ displayName }}</span></p>
       <UiButton variant="ghost" size="sm" :disabled="loading" @click="refresh">
         <RefreshCw class="h-4 w-4" :class="loading && 'animate-spin'" />
       </UiButton>

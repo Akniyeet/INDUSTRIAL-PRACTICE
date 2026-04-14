@@ -22,4 +22,8 @@ export class InfrastructureApi {
   health() {
     return this.client.get<InfrastructureHealthResponse>('/v1/infrastructure/health')
   }
+
+  restart() {
+    return this.client.post<{ message: string }>('/v1/infrastructure/restart')
+  }
 }

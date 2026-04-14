@@ -1,6 +1,7 @@
 package com.webizon.config;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.actuate.health.CompositeHealth;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthComponent;
@@ -8,6 +9,7 @@ import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.boot.actuate.health.Status;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,6 +30,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/infrastructure")
 @RequiredArgsConstructor
+@Slf4j
 public class InfrastructureHealthController {
 
     private final HealthEndpoint healthEndpoint;
@@ -61,6 +64,26 @@ public class InfrastructureHealthController {
         }
 
         return new InfrastructureHealthResponse(overall, services);
+    }
+
+    /**
+     * Restart request — triggers a graceful Spring context shutdown + JVM exit.
+     * The Docker container's restart policy ({@code unless-stopped}) will bring
+     * the service back up. Only TENANT_OWNER can invoke this.
+     */
+    @PostMapping("/restart")
+    @PreAuthorize("hasAnyRole('TENANT_OWNER')")
+    public Map<String, String> restart() {
+        log.info("Restart requested by admin — scheduling graceful shutdown in 2 seconds");
+        new Thread(() -> {
+            try {
+                Thread.sleep(2000); // Allow the HTTP response to be sent
+                System.exit(0);     // Docker restart policy restarts the container
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }).start();
+        return Map.of("message", "Restart scheduled. Services will be back in ~30 seconds.");
     }
 
     // ------------------------------------------------------------------

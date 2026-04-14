@@ -6,7 +6,7 @@
 import {
   Activity, Server, Database, Zap, Wifi, AlertTriangle,
   RefreshCw, CheckCircle2, XCircle, Clock, HardDrive,
-  Radio, Shield, Globe, MessageSquare,
+  Radio, Shield, Globe, MessageSquare, Power,
 } from 'lucide-vue-next'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import type { ServiceHealth } from '#shared/api/endpoints/infrastructure'
@@ -91,6 +91,26 @@ function overallBanner() {
   if (overall.value === 'degraded') return { text: 'Некоторые сервисы деградированы', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
   return { text: 'Один или несколько сервисов недоступны', cls: 'bg-red-50 text-red-700 border-red-200' }
 }
+
+// Restart
+const showRestartConfirm = ref(false)
+const restarting = ref(false)
+const toast = useToastStore()
+
+async function restartServices() {
+  restarting.value = true
+  try {
+    await api.infrastructure.restart()
+    toast.success('Перезагрузка запущена', 'Сервисы перезапускаются. Обновите страницу через 30 секунд.')
+    showRestartConfirm.value = false
+    // Reload health after 15s
+    setTimeout(() => loadHealth(), 15_000)
+  } catch (e: any) {
+    toast.error(e?.message ?? 'Ошибка перезагрузки')
+  } finally {
+    restarting.value = false
+  }
+}
 </script>
 
 <template>
@@ -170,6 +190,47 @@ function overallBanner() {
       >
         <template #icon><Activity class="h-5 w-5" /></template>
       </UiEmpty>
+
+      <!-- Restart section -->
+      <UiCard class="border-red-200/50">
+        <div class="flex items-center justify-between">
+          <div class="flex items-start gap-3">
+            <Power class="mt-0.5 h-5 w-5 text-red-400" />
+            <div>
+              <p class="text-sm font-medium text-slate-900">Перезагрузка сервисов</p>
+              <p class="text-xs text-slate-500">Полный перезапуск всех Docker-контейнеров. Используйте при критических сбоях.</p>
+            </div>
+          </div>
+          <UiButton
+            variant="outline"
+            size="sm"
+            class="border-red-300 text-red-600 hover:bg-red-50"
+            @click="showRestartConfirm = true"
+          >
+            <Power class="h-4 w-4" />
+            Перезагрузить
+          </UiButton>
+        </div>
+        <!-- Confirmation dialog -->
+        <div v-if="showRestartConfirm" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+          <p class="text-sm font-medium text-red-800">Вы уверены?</p>
+          <p class="mt-1 text-xs text-red-600">Все сервисы будут перезапущены. Это может занять 30-60 секунд. Эфиры и чаты будут временно недоступны.</p>
+          <div class="mt-3 flex gap-2">
+            <UiButton
+              variant="primary"
+              size="sm"
+              class="bg-red-600 hover:bg-red-700"
+              :loading="restarting"
+              @click="restartServices"
+            >
+              Да, перезагрузить
+            </UiButton>
+            <UiButton variant="ghost" size="sm" @click="showRestartConfirm = false">
+              Отмена
+            </UiButton>
+          </div>
+        </div>
+      </UiCard>
 
       <!-- Info note -->
       <UiCard class="border-slate-200">

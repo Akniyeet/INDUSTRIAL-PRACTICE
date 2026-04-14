@@ -61,7 +61,7 @@ const features = [
   { icon: MessageSquare, title: 'Живой чат', desc: 'Кастомный чат с модерацией, slow mode, ответами и ролями. Полный контроль за вами.', color: 'from-blue-500 to-cyan-400' },
   { icon: RefreshCw, title: 'Авто-повторы', desc: 'Проведите эфир один раз — система покажет его снова по расписанию. Без вашего участия.', color: 'from-violet-500 to-purple-400' },
   { icon: MousePointerClick, title: 'CTA-движок', desc: 'Кнопки и формы появляются в эфире точно когда нужно. Связь с аудиторией в один клик.', color: 'from-accent-500 to-rose-400' },
-  { icon: BarChart3, title: 'Аналитика', desc: 'Retention, конверсии CTA, пиковые зрители и поведенческие сигналы для CRM.', color: 'from-emerald-500 to-teal-400' },
+  { icon: BarChart3, title: 'AI-аналитика', desc: 'AI определяет горячих лидов в реальном времени. Retention, CTA, поведение — всё для CRM.', color: 'from-emerald-500 to-teal-400' },
   { icon: Shield, title: 'Модерация', desc: 'Предупреждение, мут, бан. Аудит-лог, фильтры нецензурной лексики и спама.', color: 'from-amber-500 to-orange-400' },
   { icon: Zap, title: 'Удобная оплата', desc: 'Любая карта, любая страна. Платите только за реальных зрителей.', color: 'from-brand-500 to-blue-400' },
 ]
@@ -152,6 +152,14 @@ onMounted(() => {
   onUnmounted(() => clearInterval(chatInterval))
 })
 
+// Calculator
+const viewerEstimate = ref(100)
+const estimatedCost = computed(() => viewerEstimate.value * 15)
+const sliderPercent = computed(() => ((viewerEstimate.value - 10) / (5000 - 10)) * 100)
+function fmtTenge(v: number) {
+  return new Intl.NumberFormat('ru-KZ').format(v) + ' ₸'
+}
+
 const stats = [
   { value: '60K+', label: 'зрителей одновременно', icon: Users },
   { value: '<150мс', label: 'скорость доставки чата', icon: Zap },
@@ -183,17 +191,18 @@ const stats = [
         <div class="grid gap-12 md:grid-cols-2 md:items-center md:gap-16 lg:gap-20">
           <!-- Left: copy -->
           <div class="hero-content">
-            <div class="hero-badge mb-6 inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-4 py-1.5 text-xs font-semibold text-brand-300 backdrop-blur-sm">
+            <div class="hero-badge mb-6 inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-4 py-1.5 text-xs font-semibold text-red-400 backdrop-blur-sm">
               <span class="relative flex h-2 w-2">
-                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-75" />
-                <span class="relative inline-flex h-2 w-2 rounded-full bg-brand-400" />
+                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                <span class="relative inline-flex h-2 w-2 rounded-full bg-red-400" />
               </span>
               14 дней бесплатно
             </div>
 
-            <h1 class="hero-title text-4xl font-bold leading-[1.08] tracking-tight text-white md:text-5xl lg:text-[3.75rem]">
-              Вебинары нового<br />
-              <span class="hero-gradient-text bg-gradient-to-r from-brand-400 via-violet-400 to-accent-400 bg-clip-text text-transparent">поколения</span>
+            <h1 class="hero-title text-4xl font-bold leading-[1.1] tracking-tight text-white md:text-5xl lg:text-[3.5rem]">
+              Вебинары нового поколения
+              <span class="hero-gradient-text bg-gradient-to-r from-brand-400 via-violet-400 to-accent-400 bg-clip-text text-transparent">с AI‑анализом</span>
+              в реальном времени
             </h1>
 
             <p class="hero-desc mt-6 max-w-lg text-base leading-relaxed text-slate-400 md:text-lg">
@@ -223,6 +232,31 @@ const stats = [
                 <div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
                 <div class="absolute inset-0 flex items-center justify-center">
                   <LogoMark :size="64" :animate="true" :pulse="true" />
+
+                  <!-- AI metric badges orbiting the logo -->
+                  <div class="hero-orbit-badge hero-orbit-1 absolute flex items-center gap-1.5 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1.5 backdrop-blur-md" style="top: 16%; right: 12%">
+                    <TrendingUp class="h-3.5 w-3.5 text-emerald-400" />
+                    <div>
+                      <p class="text-[11px] font-bold text-emerald-400">+34%</p>
+                      <p class="text-[8px] text-white/40">конверсия</p>
+                    </div>
+                  </div>
+
+                  <div class="hero-orbit-badge hero-orbit-2 absolute flex items-center gap-1.5 rounded-lg border border-accent-400/20 bg-accent-500/10 px-2.5 py-1.5 backdrop-blur-md" style="bottom: 28%; left: 6%">
+                    <Sparkles class="h-3.5 w-3.5 text-accent-400" />
+                    <div>
+                      <p class="text-[11px] font-bold text-accent-400">56%</p>
+                      <p class="text-[8px] text-white/40">горячий лид</p>
+                    </div>
+                  </div>
+
+                  <div class="hero-orbit-badge hero-orbit-3 absolute flex items-center gap-1.5 rounded-lg border border-violet-400/20 bg-violet-500/10 px-2.5 py-1.5 backdrop-blur-md" style="bottom: 26%; right: 8%">
+                    <Users class="h-3.5 w-3.5 text-violet-400" />
+                    <div>
+                      <p class="text-[11px] font-bold text-violet-400">87%</p>
+                      <p class="text-[8px] text-white/40">зрители активно</p>
+                    </div>
+                  </div>
                 </div>
                 <!-- LIVE badge -->
                 <div class="absolute left-3 top-3 flex items-center gap-1.5 rounded-lg bg-red-500/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-lg shadow-red-500/30 backdrop-blur">
@@ -287,16 +321,6 @@ const stats = [
               </div>
             </div>
 
-            <!-- Floating analytics badge -->
-            <div class="hero-float-delayed absolute -right-2 -top-6 z-10 rounded-xl border border-white/10 bg-white/5 px-3 py-2 shadow-xl backdrop-blur-md md:-right-4 md:-top-8">
-              <div class="flex items-center gap-2">
-                <TrendingUp class="h-4 w-4 text-emerald-400" />
-                <div>
-                  <p class="text-xs font-semibold text-emerald-400">+34%</p>
-                  <p class="text-[10px] text-white/50">конверсия</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -587,7 +611,7 @@ const stats = [
               <div class="mt-4 flex items-center gap-2">
                 <div class="flex h-7 w-10 items-center justify-center rounded bg-blue-500/10 text-[10px] font-bold text-blue-400">VISA</div>
                 <div class="flex h-7 w-10 items-center justify-center rounded bg-orange-500/10 text-[10px] font-bold text-orange-400">MC</div>
-                <div class="flex h-7 w-12 items-center justify-center rounded bg-green-500/10 text-[10px] font-bold text-green-400">Kaspi</div>
+                <div class="flex h-7 w-12 items-center justify-center rounded bg-red-500/10 text-[10px] font-bold text-red-400">Kaspi</div>
               </div>
             </div>
 
@@ -595,14 +619,22 @@ const stats = [
               :ref="setRevealRef"
               class="reveal-up flex-1 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-7 transition-all duration-500 hover:border-white/[0.12] hover:bg-white/[0.06]"
             >
-              <h3 class="text-lg font-bold text-white">Прозрачный расчёт</h3>
-              <p class="mt-2 text-sm text-slate-400">
-                Детальная статистика расходов по каждому эфиру. Никаких сюрпризов в счёте.
-              </p>
-              <div class="mt-3 flex items-center gap-1.5 text-sm font-medium text-brand-400">
-                <BarChart3 class="h-4 w-4" />
-                Аналитика в реальном времени
+              <h3 class="text-lg font-bold text-white">Калькулятор стоимости</h3>
+              <p class="mt-2 text-xs text-slate-500">Предполагаемое количество зрителей</p>
+              <input
+                v-model.number="viewerEstimate"
+                type="range"
+                min="10"
+                max="5000"
+                step="10"
+                class="mt-3 w-full accent-brand-500 calc-slider"
+                :style="`background: linear-gradient(to right, var(--color-brand-500, #6366f1) ${sliderPercent}%, rgba(255,255,255,0.08) ${sliderPercent}%)`"
+              />
+              <div class="mt-2 flex items-center justify-between">
+                <span class="text-sm font-medium text-white">{{ viewerEstimate.toLocaleString() }} зрителей</span>
+                <span class="text-lg font-bold text-brand-400">{{ fmtTenge(estimatedCost) }}</span>
               </div>
+              <p class="mt-1.5 text-[10px] text-slate-500">15 ₸ за зрителя · Оплата по факту</p>
             </div>
           </div>
         </div>
@@ -643,6 +675,78 @@ const stats = [
 </template>
 
 <style>
+/* ================================================================== */
+/* Calculator slider — larger thumb                                    */
+/* ================================================================== */
+.calc-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  outline: none;
+}
+.calc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-brand-500, #6366f1);
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(99,102,241,0.5);
+  transition: transform 0.15s;
+}
+.calc-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+.calc-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-brand-500, #6366f1);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 10px rgba(99,102,241,0.5);
+}
+
+/* ================================================================== */
+/* AI metric badges — wave float animation around the logo             */
+/* ================================================================== */
+.hero-orbit-badge {
+  z-index: 5;
+  pointer-events: none;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.hero-orbit-1 {
+  animation: orbit-wave-1 4s ease-in-out infinite;
+}
+.hero-orbit-2 {
+  animation: orbit-wave-2 5s ease-in-out infinite;
+}
+.hero-orbit-3 {
+  animation: orbit-wave-3 4.5s ease-in-out infinite;
+}
+@keyframes orbit-wave-1 {
+  0%, 100% { transform: translateY(0) translateX(0); opacity: 0.95; }
+  25%      { transform: translateY(-6px) translateX(3px); opacity: 1; }
+  50%      { transform: translateY(2px) translateX(-2px); opacity: 0.85; }
+  75%      { transform: translateY(-4px) translateX(1px); opacity: 1; }
+}
+@keyframes orbit-wave-2 {
+  0%, 100% { transform: translateY(0) translateX(0); opacity: 0.9; }
+  30%      { transform: translateY(5px) translateX(-4px); opacity: 1; }
+  60%      { transform: translateY(-3px) translateX(3px); opacity: 0.85; }
+  80%      { transform: translateY(4px) translateX(-1px); opacity: 1; }
+}
+@keyframes orbit-wave-3 {
+  0%, 100% { transform: translateY(0) translateX(0); opacity: 0.9; }
+  20%      { transform: translateY(-5px) translateX(-3px); opacity: 1; }
+  50%      { transform: translateY(4px) translateX(4px); opacity: 0.8; }
+  70%      { transform: translateY(-2px) translateX(-2px); opacity: 1; }
+}
+
 /* ================================================================== */
 /* Hero orbital rings — echoing the logo's ring motif                  */
 /* ================================================================== */

@@ -31,6 +31,7 @@ export function useApi(): Api {
   const api = createApi({
     baseURL: apiBase,
     getToken: () => auth.token,
+    getTenantId: () => auth.tenantId,
     onError: (err) => {
       // 401 is handled by the auth middleware — don't yell at the user for it.
       if (err.status === 401) return

@@ -20,6 +20,7 @@ import {
   Users,
   Wallet2,
   Activity,
+  ShieldCheck,
   X,
 } from 'lucide-vue-next'
 import { Menu as HMenu, MenuButton, MenuItem, MenuItems } from '@headlessui/vue'
@@ -29,7 +30,7 @@ const auth = useAuthStore()
 const mobileOpen = ref(false)
 
 const nav = [
-  { to: '/admin',          label: 'Главная',       icon: LayoutDashboard },
+  { to: '/admin',          label: 'Dashboard',     icon: LayoutDashboard },
   { to: '/admin/events',   label: 'Мероприятия',   icon: Calendar },
   { to: '/admin/sessions', label: 'Сессии',        icon: Radio },
   { to: '/admin/members',  label: 'Команда',       icon: Users },
@@ -44,7 +45,17 @@ function logout() {
 }
 
 const displayName = computed(() => auth.user?.fullName || auth.user?.email || 'Гость')
-const tenantLabel = computed(() => auth.user?.tenantId ? 'Workspace' : 'No workspace')
+
+const route = useRoute()
+const activeNavLabel = computed(() => {
+  // Exact match first (/admin itself)
+  const exact = nav.find(item => route.path === item.to)
+  if (exact) return exact.label
+  // Prefix match for sub-pages (/admin/events/create → Мероприятия)
+  return nav
+    .filter(item => item.to !== '/admin')
+    .find(item => route.path.startsWith(item.to))?.label ?? 'Webizon'
+})
 </script>
 
 <template>
@@ -72,13 +83,22 @@ const tenantLabel = computed(() => auth.user?.tenantId ? 'Workspace' : 'No works
         </NuxtLink>
       </nav>
 
-      <div class="border-t border-slate-100 p-3">
+      <div class="border-t border-slate-100 p-3 space-y-2">
         <NuxtLink
           to="/admin/events/create"
           class="flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
         >
           <Megaphone class="h-4 w-4" />
           Новое мероприятие
+        </NuxtLink>
+        <!-- Platform admin link — visible only to super admins -->
+        <NuxtLink
+          v-if="auth.isPlatformAdmin"
+          to="/platform"
+          class="flex items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+        >
+          <ShieldCheck class="h-4 w-4" />
+          Platform Admin
         </NuxtLink>
       </div>
     </aside>
@@ -148,8 +168,10 @@ const tenantLabel = computed(() => auth.user?.tenantId ? 'Workspace' : 'No works
           <Menu class="h-5 w-5" />
         </button>
 
-        <div class="hidden items-center gap-2 text-sm text-slate-500 lg:flex">
-          <span class="font-medium text-slate-900">{{ tenantLabel }}</span>
+        <div class="hidden min-w-0 flex-col justify-center lg:flex">
+          <span class="truncate text-sm font-semibold text-slate-900 leading-tight">
+            {{ activeNavLabel }}
+          </span>
         </div>
 
         <HMenu as="div" class="relative ml-auto">

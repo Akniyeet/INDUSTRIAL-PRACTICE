@@ -58,6 +58,18 @@
            focus:border-brand-500 focus:ring-1 focus:ring-brand-500
            disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed;
   }
+
+  /* Select: hide native arrow, inject custom chevron */
+  select.input-base {
+    @apply appearance-none pr-9 cursor-pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 1rem;
+  }
+  select.input-base:focus {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 15-6-6-6 6'/%3E%3C/svg%3E");
+  }
   .input-error {
     @apply border-danger-500 focus:border-danger-500 focus:ring-danger-500;
   }

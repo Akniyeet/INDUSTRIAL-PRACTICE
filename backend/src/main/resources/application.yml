@@ -161,6 +161,12 @@ webizon:
     # 32 bytes = 256 bits of entropy → base64url-encoded to 43 chars.
     token-bytes: 32
 
+  anthropic:
+    api-key: ${WEBIZON_ANTHROPIC_API_KEY:}
+    model: ${WEBIZON_ANTHROPIC_MODEL:claude-sonnet-4-6-20250514}
+    max-tokens: 512
+    base-url: ${WEBIZON_ANTHROPIC_BASE_URL:https://api.anthropic.com}
+
   moderation:
     flood:
       max-messages: 5
