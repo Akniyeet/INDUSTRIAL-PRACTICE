@@ -190,7 +190,8 @@ public class OtpService {
                     <tr>
                       <td style="padding:0 40px 20px;text-align:center">
                         <div style="display:inline-block;background:#f0f4ff;border:2px solid #d4deff;border-radius:12px;padding:12px 32px">
-                          <span style="font-size:32px;font-weight:900;color:#215CFF;letter-spacing:8px;font-family:'DM Sans',monospace;user-select:all">""" + code + """</span>
+                          <span style="font-size:32px;font-weight:900;color:#215CFF;letter-spacing:8px;font-family:'DM Sans',monospace;user-select:all">""" + code + """
+                          </span>
                         </div>
                         <div style="margin-top:10px;font-size:12px;color:#94a3b8">
                           &#128203; Нажмите на код, чтобы выделить и скопировать
