@@ -96,11 +96,11 @@ async function impersonate(tenant: PlatformTenantResponse) {
     <!-- Header row -->
     <div class="flex items-center justify-between gap-4">
       <div>
-        <h1 class="text-lg font-bold text-white">Клиенты ({{ total }})</h1>
+        <h1 class="text-lg font-bold text-slate-900 dark:text-white">Клиенты ({{ total }})</h1>
         <p class="text-xs text-slate-400">Все рабочие пространства на платформе</p>
       </div>
       <button
-        class="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+        class="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
         :disabled="loading"
         @click="refresh"
       >
@@ -113,21 +113,21 @@ async function impersonate(tenant: PlatformTenantResponse) {
       <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
       <input
         v-model="searchQ"
-        class="w-full rounded-lg border border-slate-700 bg-slate-800 pl-9 pr-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-violet-500 focus:outline-none"
+        class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 pl-9 pr-4 py-2 text-sm text-slate-900 dark:text-white placeholder:text-slate-500 focus:border-violet-500 focus:outline-none"
         placeholder="Поиск по названию, slug или email владельца…"
       />
     </div>
 
     <!-- Loading skeletons -->
     <div v-if="loading" class="space-y-2">
-      <div v-for="i in 6" :key="i" class="h-[68px] animate-pulse rounded-xl bg-slate-800" />
+      <div v-for="i in 6" :key="i" class="h-[68px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
     </div>
 
     <!-- Table -->
-    <div v-else-if="filtered.length" class="overflow-hidden rounded-xl border border-slate-800">
+    <div v-else-if="filtered.length" class="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
       <table class="w-full text-sm">
         <thead>
-          <tr class="border-b border-slate-800 bg-slate-900">
+          <tr class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
             <th class="px-4 py-3 text-left text-xs font-medium text-slate-400">Клиент</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-slate-400">Владелец</th>
             <th class="px-4 py-3 text-center text-xs font-medium text-slate-400">Статус</th>
@@ -141,7 +141,7 @@ async function impersonate(tenant: PlatformTenantResponse) {
           <tr
             v-for="t in filtered"
             :key="t.id"
-            class="border-b border-slate-800 bg-slate-900 transition-colors hover:bg-slate-800/60"
+            class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors hover:bg-slate-100 dark:bg-slate-800/60"
           >
             <!-- Name + slug -->
             <td class="px-4 py-3">
@@ -150,7 +150,7 @@ async function impersonate(tenant: PlatformTenantResponse) {
                   {{ t.displayName.charAt(0).toUpperCase() }}
                 </div>
                 <div>
-                  <p class="font-medium text-white">{{ t.displayName }}</p>
+                  <p class="font-medium text-slate-900 dark:text-white">{{ t.displayName }}</p>
                   <p class="text-xs text-slate-500">{{ t.slug }}</p>
                 </div>
               </div>
@@ -158,7 +158,7 @@ async function impersonate(tenant: PlatformTenantResponse) {
 
             <!-- Owner -->
             <td class="px-4 py-3">
-              <p class="text-white">{{ t.ownerFullName || '—' }}</p>
+              <p class="text-slate-900 dark:text-white">{{ t.ownerFullName || '—' }}</p>
               <p class="text-xs text-slate-500">{{ t.ownerEmail || '—' }}</p>
             </td>
 
@@ -172,7 +172,7 @@ async function impersonate(tenant: PlatformTenantResponse) {
 
             <!-- Events -->
             <td class="px-4 py-3 text-right">
-              <span class="font-medium text-white">{{ t.eventCount }}</span>
+              <span class="font-medium text-slate-900 dark:text-white">{{ t.eventCount }}</span>
               <span v-if="t.currentlyLive > 0" class="ml-1 inline-flex items-center gap-0.5 rounded-full bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-400">
                 <span class="h-1 w-1 rounded-full bg-red-500 animate-pulse" />
                 {{ t.currentlyLive }} live
@@ -195,13 +195,13 @@ async function impersonate(tenant: PlatformTenantResponse) {
               <div class="flex items-center justify-end gap-1">
                 <NuxtLink
                   :to="`/platform/tenants/${t.id}`"
-                  class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:border-violet-600 hover:text-violet-400"
+                  class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 text-slate-400 hover:border-violet-600 hover:text-violet-400"
                   title="Детали"
                 >
                   <ArrowRight class="h-3.5 w-3.5" />
                 </NuxtLink>
                 <button
-                  class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:border-violet-600 hover:text-violet-400"
+                  class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 text-slate-400 hover:border-violet-600 hover:text-violet-400"
                   title="Войти в workspace"
                   :disabled="impersonating === t.id"
                   @click="impersonate(t)"

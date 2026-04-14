@@ -83,17 +83,8 @@ const activeNavLabel = computed(() => {
         </NuxtLink>
       </nav>
 
-      <div class="border-t border-slate-100 p-3 space-y-2">
+      <div v-if="auth.isPlatformAdmin" class="border-t border-slate-100 p-3">
         <NuxtLink
-          to="/admin/events/create"
-          class="flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
-        >
-          <Megaphone class="h-4 w-4" />
-          Новое мероприятие
-        </NuxtLink>
-        <!-- Platform admin link — visible only to super admins -->
-        <NuxtLink
-          v-if="auth.isPlatformAdmin"
           to="/platform"
           class="flex items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
         >

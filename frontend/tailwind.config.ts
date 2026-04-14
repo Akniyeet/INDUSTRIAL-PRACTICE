@@ -9,6 +9,7 @@ import type { Config } from 'tailwindcss'
  * single source of truth — ad-hoc hex values in components are a review smell.
  */
 export default <Partial<Config>>{
+  darkMode: 'class',
   content: [
     './app/**/*.{vue,ts}',
     './shared/**/*.ts',

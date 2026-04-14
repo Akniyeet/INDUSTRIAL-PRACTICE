@@ -56,11 +56,11 @@ const vatPercent = computed(() => {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-lg font-bold text-white">Финансовая аналитика</h1>
+        <h1 class="text-lg font-bold text-slate-900 dark:text-white">Финансовая аналитика</h1>
         <p class="text-xs text-slate-400">Доходы, НДС, комиссии — по всей платформе</p>
       </div>
       <button
-        class="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+        class="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
         :disabled="loading"
         @click="refresh"
       >
@@ -70,9 +70,9 @@ const vatPercent = computed(() => {
 
     <!-- Top summary cards -->
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="rounded-xl border border-slate-800 bg-slate-900 p-5 lg:col-span-2">
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 lg:col-span-2">
         <p class="text-xs text-slate-400">Общий оборот (все время)</p>
-        <p class="mt-1 text-3xl font-black text-white">
+        <p class="mt-1 text-3xl font-black text-slate-900 dark:text-white">
           <span v-if="loading" class="inline-block h-8 w-40 animate-pulse rounded bg-slate-700" />
           <span v-else>{{ fmtKzt(data?.allTimeTotalKzt) }}</span>
         </p>
@@ -88,9 +88,9 @@ const vatPercent = computed(() => {
         </div>
       </div>
 
-      <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
         <p class="text-xs text-slate-400">Доход этого месяца</p>
-        <p class="mt-1 text-2xl font-bold text-white">
+        <p class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
           <span v-if="loading" class="inline-block h-7 w-28 animate-pulse rounded bg-slate-700" />
           <span v-else>{{ fmtKzt(data?.thisMonthTotalKzt) }}</span>
         </p>
@@ -100,7 +100,7 @@ const vatPercent = computed(() => {
         </div>
       </div>
 
-      <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
         <div class="flex items-start justify-between">
           <div>
             <p class="text-xs text-slate-400">Дебиторская задолженность</p>
@@ -119,8 +119,8 @@ const vatPercent = computed(() => {
     </div>
 
     <!-- Monthly chart -->
-    <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
-      <h2 class="mb-4 text-sm font-semibold text-white">Динамика по месяцам</h2>
+    <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+      <h2 class="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Динамика по месяцам</h2>
       <div v-if="loading" class="flex items-end gap-1 h-36">
         <div v-for="i in 12" :key="i" class="flex-1 animate-pulse rounded-t bg-slate-700" :style="`height: ${20 + i * 5}%`" />
       </div>
@@ -173,13 +173,13 @@ const vatPercent = computed(() => {
     <!-- Top tenants + Top events -->
     <div class="grid gap-5 lg:grid-cols-2">
       <!-- Top tenants -->
-      <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
-        <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
           <Building2 class="h-4 w-4 text-violet-400" />
           Топ клиентов по доходу
         </h2>
         <div v-if="loading" class="space-y-2">
-          <div v-for="i in 5" :key="i" class="h-10 animate-pulse rounded-lg bg-slate-800" />
+          <div v-for="i in 5" :key="i" class="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
         </div>
         <div v-else-if="!data?.topTenants?.length" class="text-center py-6 text-sm text-slate-500">
           Нет данных
@@ -188,11 +188,11 @@ const vatPercent = computed(() => {
           <li
             v-for="(t, i) in data.topTenants"
             :key="t.tenantId"
-            class="flex items-center gap-3 rounded-lg bg-slate-800/40 px-3 py-2"
+            class="flex items-center gap-3 rounded-lg bg-slate-100 dark:bg-slate-800/40 px-3 py-2"
           >
             <span class="w-5 text-center text-xs font-bold text-slate-500">#{{ i + 1 }}</span>
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium text-white">{{ t.displayName }}</p>
+              <p class="truncate text-sm font-medium text-slate-900 dark:text-white">{{ t.displayName }}</p>
               <p class="text-xs text-slate-500">{{ t.invoiceCount }} счетов</p>
             </div>
             <div class="text-right">
@@ -204,13 +204,13 @@ const vatPercent = computed(() => {
       </div>
 
       <!-- Top events -->
-      <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
-        <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
+      <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
           <Calendar class="h-4 w-4 text-brand-400" />
           Топ мероприятий по доходу
         </h2>
         <div v-if="loading" class="space-y-2">
-          <div v-for="i in 5" :key="i" class="h-10 animate-pulse rounded-lg bg-slate-800" />
+          <div v-for="i in 5" :key="i" class="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
         </div>
         <div v-else-if="!data?.topEvents?.length" class="text-center py-6 text-sm text-slate-500">
           Нет данных
@@ -219,11 +219,11 @@ const vatPercent = computed(() => {
           <li
             v-for="(ev, i) in data.topEvents"
             :key="ev.eventId"
-            class="flex items-center gap-3 rounded-lg bg-slate-800/40 px-3 py-2"
+            class="flex items-center gap-3 rounded-lg bg-slate-100 dark:bg-slate-800/40 px-3 py-2"
           >
             <span class="w-5 text-center text-xs font-bold text-slate-500">#{{ i + 1 }}</span>
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium text-white">{{ ev.eventTitle || 'Без названия' }}</p>
+              <p class="truncate text-sm font-medium text-slate-900 dark:text-white">{{ ev.eventTitle || 'Без названия' }}</p>
               <p class="text-xs text-slate-500">{{ ev.tenantSlug }} · {{ ev.sessionCount }} сессий</p>
             </div>
             <p class="text-sm font-bold text-brand-400">{{ fmtKzt(ev.totalKzt) }}</p>
@@ -237,7 +237,7 @@ const vatPercent = computed(() => {
       <div class="flex items-start gap-3">
         <DollarSign class="h-5 w-5 shrink-0 text-violet-400 mt-0.5" />
         <div class="space-y-1 text-sm text-slate-300">
-          <p class="font-semibold text-white">Структура платежей</p>
+          <p class="font-semibold text-slate-900 dark:text-white">Структура платежей</p>
           <p>Субтотал — чистый доход платформы до налогов.</p>
           <p>НДС ({{ vatPercent }}%) — налог на добавленную стоимость, передаётся в бюджет.</p>
           <p>Итоговая сумма = Субтотал + НДС — именно столько платит клиент.</p>

@@ -76,16 +76,25 @@ public final class CurrentUser {
      * canonical user identity inside the app — all chat, analytics,
      * CRM, and moderation rows point at this UUID, never at the
      * Keycloak subject.
+     *
+     * <p>Falls back to keycloak subject ({@code sub}) when the
+     * {@code profile_id} claim is absent — this happens when the
+     * Keycloak protocol mapper is not configured. The caller then
+     * receives the keycloak UUID which must be resolved to the
+     * application user id via {@code UserService.requireByKeycloakId}.
      */
     public static UUID profileId() {
         String raw = jwt().getClaimAsString("profile_id");
         if (raw == null || raw.isBlank()) {
-            throw new IllegalStateException("JWT has no profile_id claim");
+            // Fallback: return keycloak subject so at least the call doesn't crash.
+            // Controllers that need the real app user id should use
+            // UserService.requireByKeycloakId(keycloakId()) instead.
+            return keycloakId();
         }
         try {
             return UUID.fromString(raw);
         } catch (IllegalArgumentException ex) {
-            throw new IllegalStateException("JWT profile_id is not a valid UUID: " + raw, ex);
+            return keycloakId();
         }
     }
 

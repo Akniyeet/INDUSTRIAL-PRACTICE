@@ -367,10 +367,13 @@ async function onSubmit() {
     }
     emit('submit', saved)
   } catch (err) {
-    const apiErr = err as { errors?: Record<string, string> }
-    if (apiErr.errors) {
+    const apiErr = err as { errors?: Record<string, string>; title?: string; detail?: string }
+    if (apiErr.errors && Object.keys(apiErr.errors).length > 0) {
       for (const [field, msg] of Object.entries(apiErr.errors)) errors[field] = msg
       currentStep.value = 1
+      toast.warning('Проверьте заполненные поля')
+    } else {
+      toast.error(apiErr.title ?? 'Ошибка', apiErr.detail ?? 'Не удалось сохранить мероприятие')
     }
   } finally { loading.value = false }
 }
