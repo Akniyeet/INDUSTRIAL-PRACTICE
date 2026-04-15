@@ -47,6 +47,10 @@ export class EventsApi {
     return this.client.post<EventResponse>(`/v1/events/${id}/unpublish`)
   }
 
+  archive(id: UUID) {
+    return this.client.delete<void>(`/v1/events/${id}`)
+  }
+
   remove(id: UUID) {
     return this.client.delete<void>(`/v1/events/${id}`)
   }

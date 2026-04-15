@@ -151,8 +151,7 @@ function copyLink(ev: EventResponse) {
 async function goLive(ev: EventResponse) {
   if (!confirm('Начать эфир? Его нельзя поставить на паузу.')) return
   try {
-    const session = await api.sessions.create({
-      eventId: ev.id,
+    const session = await api.sessions.create(ev.id, {
       type: 'LIVE',
       startTime: new Date().toISOString(),
       plannedDurationSeconds: 5400,
@@ -163,6 +162,19 @@ async function goLive(ev: EventResponse) {
     toast.success('Эфир запущен!')
   } catch (e: any) {
     toast.error(e?.detail ?? 'Ошибка запуска эфира')
+  }
+}
+
+async function archiveEvent(ev: EventResponse) {
+  if (!confirm(`Архивировать «${ev.title}»? Событие будет скрыто из публичного доступа.`)) return
+  try {
+    await api.events.archive(ev.id)
+    events.value = events.value.map(e =>
+      e.id === ev.id ? { ...e, status: 'ARCHIVED' as any } : e
+    )
+    toast.success('Мероприятие архивировано')
+  } catch (e: any) {
+    toast.error(e?.detail ?? 'Ошибка архивирования')
   }
 }
 
@@ -321,7 +333,7 @@ function formatDate(iso: string) {
               <BarChart3 class="h-4 w-4" />
             </NuxtLink>
             <NuxtLink
-              :to="`/admin/events/${ev.id}`"
+              :to="`/admin/events/${ev.id}/edit`"
               class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600"
               title="Редактировать"
             >
@@ -339,7 +351,7 @@ function formatDate(iso: string) {
               v-if="ev.status !== 'ARCHIVED'"
               class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600"
               title="Архивировать"
-              @click.stop="() => {}"
+              @click.stop="archiveEvent(ev)"
             >
               <Archive class="h-4 w-4" />
             </button>
