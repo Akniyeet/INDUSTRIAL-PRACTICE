@@ -117,7 +117,16 @@ const benefitIcons = [
   'Shield', 'Laptop', 'Brain', 'Puzzle', 'TrendingUp', 'Award',
   'Clock', 'CheckCircle', 'MessageCircle', 'Play', 'Code', 'Palette',
 ]
-interface LandingItem { title: string; desc: string; icon?: string }
+// Map icon name strings → imported component objects (required for <component :is>)
+const iconMap: Record<string, object> = {
+  Sparkles, Lightbulb, Target, Rocket, Trophy, Star,
+  Heart, Zap, BookOpen, GraduationCap, Users, Globe, Shield, Laptop,
+  Brain, Puzzle, TrendingUp, Award, Clock, CheckCircle, MessageCircle,
+  Play, Code, Palette,
+}
+function getIcon(name?: string) { return iconMap[name ?? 'Sparkles'] ?? iconMap.Sparkles }
+
+interface LandingItem { title: string; desc: string; icon?: string; _iconOpen?: boolean }
 const benefitsTitle = ref('Что вы узнаете')
 const benefits = ref<LandingItem[]>([
   { title: 'Практические знания', desc: 'Реальные навыки, которые сразу применяете', icon: 'Lightbulb' },
@@ -213,9 +222,7 @@ function removeCover() {
 
 function validateStep1(): boolean {
   for (const k of Object.keys(errors)) delete errors[k]
-  if (!title.value.trim()) errors.title = 'Введите название'
-  if (!description.value.trim()) errors.description = 'Введите описание'
-  if (!speakerName.value.trim()) errors.speakerName = 'Укажите имя спикера'
+  if (!title.value.trim()) errors.title = 'Обязательное поле'
   if (props.mode === 'create' && slug.value && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.value))
     errors.slug = 'Только латинские буквы, цифры и дефис'
   const valid = Object.keys(errors).length === 0
@@ -432,10 +439,10 @@ async function onSubmit() {
           </template>
           <div class="grid gap-5">
             <UiInput v-model="title" label="Название *" placeholder="Бесплатный урок: Java Backend" :error="errors.title" :maxlength="200" required />
-            <UiTextarea v-model="description" label="Описание *" placeholder="О чём будет мероприятие..." :error="errors.description" :maxlength="4000" :rows="4" autoresize />
+            <UiTextarea v-model="description" label="Описание" placeholder="О чём будет мероприятие..." :maxlength="4000" :rows="4" autoresize />
 
             <div class="grid gap-5 sm:grid-cols-2">
-              <UiInput v-model="speakerName" label="Спикер *" placeholder="Иван Иванов" :error="errors.speakerName" />
+              <UiInput v-model="speakerName" label="Спикер" placeholder="Иван Иванов" />
               <UiInput v-model="speakerBio" label="О спикере" placeholder="Краткая биография..." />
             </div>
 
@@ -710,7 +717,7 @@ async function onSubmit() {
                         class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-brand-50 text-brand-600 transition hover:bg-brand-100"
                         @click="b._iconOpen = !b._iconOpen"
                       >
-                        <component :is="(b.icon || 'Sparkles')" class="h-4 w-4" />
+                        <component :is="getIcon(b.icon)" class="h-4 w-4" />
                       </button>
                       <!-- Icon dropdown -->
                       <div v-if="b._iconOpen" class="absolute left-0 top-full z-20 mt-1 grid w-56 grid-cols-6 gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
@@ -722,7 +729,7 @@ async function onSubmit() {
                           :class="b.icon === ic ? 'bg-brand-100 text-brand-600' : 'text-slate-500 hover:bg-slate-100'"
                           @click="b.icon = ic; b._iconOpen = false"
                         >
-                          <component :is="ic" class="h-4 w-4" />
+                          <component :is="getIcon(ic)" class="h-4 w-4" />
                         </button>
                       </div>
                     </div>
@@ -768,7 +775,7 @@ async function onSubmit() {
                 <h4 class="text-sm font-bold text-slate-900">{{ benefitsTitle }}</h4>
                 <div class="mt-3 grid grid-cols-2 gap-2">
                   <div v-for="(b, i) in benefits" :key="i" class="rounded-lg bg-slate-50 p-2.5">
-                    <component :is="b.icon || 'Sparkles'" class="h-4 w-4 text-brand-600 mb-1" />
+                    <component :is="getIcon(b.icon)" class="h-4 w-4 text-brand-600 mb-1" />
                     <p class="text-[11px] font-semibold text-slate-800">{{ b.title || 'Заголовок' }}</p>
                     <p class="mt-0.5 text-[10px] text-slate-500">{{ b.desc || 'Описание' }}</p>
                   </div>
