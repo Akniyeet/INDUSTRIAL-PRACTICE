@@ -110,9 +110,9 @@ function formatDuration(seconds: number) {
             <Download class="h-4 w-4" />
             Excel
           </UiButton>
-          <UiButton variant="ghost" size="md" :to="`/admin/events/${session.eventId}`">
+          <UiButton variant="ghost" size="md" to="/admin/events">
             <ArrowLeft class="h-4 w-4" />
-            К мероприятию
+            К мероприятиям
           </UiButton>
         </template>
       </PageHeader>

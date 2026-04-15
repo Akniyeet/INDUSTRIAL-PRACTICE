@@ -124,6 +124,154 @@
     }
   ],
 
+  "authenticationFlows": [
+    {
+      "alias": "webizon-first-broker-login",
+      "description": "Actions taken after first broker login with identity provider account, which is not yet linked to any Keycloak account",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-review-profile",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "webizon-first-broker-login User creation or linking",
+          "requirement": "REQUIRED",
+          "priority": 1,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "webizon-first-broker-login User creation or linking",
+      "description": "",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-auto-link",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticator": "idp-create-user-if-unique",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "webizon-first-broker-login Handle Existing Account",
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "webizon-first-broker-login Handle Existing Account",
+      "description": "",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-confirm-link",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "webizon-first-broker-login Account verification options",
+          "requirement": "REQUIRED",
+          "priority": 1,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "webizon-first-broker-login Account verification options",
+      "description": "",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-email-verification",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "webizon-first-broker-login Verify Existing Account by Re-authentication",
+          "requirement": "ALTERNATIVE",
+          "priority": 1,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "webizon-first-broker-login Verify Existing Account by Re-authentication",
+      "description": "",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "webizon-first-broker-login First broker login - Conditional OTP",
+          "requirement": "CONDITIONAL",
+          "priority": 1,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "webizon-first-broker-login First broker login - Conditional OTP",
+      "description": "",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-user-configured",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 1,
+          "autheticatorFlow": false
+        }
+      ]
+    }
+  ],
+
   "identityProviders": [
     {
       "alias": "google",
@@ -135,7 +283,7 @@
       "addReadTokenRoleOnCreate": false,
       "authenticateByDefault": false,
       "linkOnly": false,
-      "firstBrokerLoginFlowAlias": "first broker login",
+      "firstBrokerLoginFlowAlias": "webizon-first-broker-login",
       "config": {
         "clientId": "${env.GOOGLE_CLIENT_ID:CONFIGURE_ME}",
         "clientSecret": "${env.GOOGLE_CLIENT_SECRET:CONFIGURE_ME}",
