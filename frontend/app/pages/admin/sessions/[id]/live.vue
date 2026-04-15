@@ -344,7 +344,7 @@ const canModerate = computed(() => bootstrap.value?.capabilities.canModerate ?? 
         :breadcrumbs="[
           { label: 'Главная', to: '/admin' },
           { label: 'Мероприятия', to: '/admin/events' },
-          { label: bootstrap.event.title, to: `/admin/events/${bootstrap.event.id}` },
+          { label: bootstrap.event.title, to: '/admin/events' },
           { label: 'Управление эфиром' },
         ]"
       >

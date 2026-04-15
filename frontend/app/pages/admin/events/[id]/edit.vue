@@ -30,12 +30,12 @@ useHead({
   title: () => (event.value ? `${event.value.title} — редактирование` : 'Редактирование — Webizon'),
 })
 
-function onSaved(updated: EventResponse) {
-  router.push(`/admin/events/${updated.id}`)
+function onSaved(_updated: EventResponse) {
+  router.push('/admin/events')
 }
 
 function onCancel() {
-  router.push(`/admin/events/${eventId.value}`)
+  router.push('/admin/events')
 }
 </script>
 
@@ -47,8 +47,7 @@ function onCancel() {
       :breadcrumbs="[
         { label: 'Главная', to: '/admin' },
         { label: 'Мероприятия', to: '/admin/events' },
-        { label: event?.title || '...', to: `/admin/events/${eventId}` },
-        { label: 'Редактирование' },
+        { label: event?.title || 'Редактирование' },
       ]"
     />
 

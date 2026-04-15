@@ -17,8 +17,8 @@ useHead({ title: 'Новое мероприятие — Webizon' })
 
 const router = useRouter()
 
-function onCreated(event: EventResponse) {
-  router.push(`/admin/events/${event.id}`)
+function onCreated(_event: EventResponse) {
+  router.push('/admin/events')
 }
 
 function onCancel() {

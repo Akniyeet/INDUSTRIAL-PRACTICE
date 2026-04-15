@@ -193,6 +193,11 @@ async function endStream(ev: EventResponse) {
   }
 }
 
+function getAnalyticsLink(eventId: string): string {
+  const ended = getSessions(eventId).find(s => s.status === 'ENDED' || s.status === 'AUTO_ENDED')
+  return ended ? `/admin/sessions/${ended.id}/analytics` : '/admin/sessions'
+}
+
 function formatDate(iso: string) {
   try { return format(new Date(iso), 'dd MMM, HH:mm') } catch { return iso }
 }
@@ -326,7 +331,7 @@ function formatDate(iso: string) {
             </NuxtLink>
             <NuxtLink
               v-if="hasEnded(ev.id) || ev.status === 'ARCHIVED'"
-              :to="`/admin/events/${ev.id}?tab=analytics`"
+              :to="getAnalyticsLink(ev.id)"
               class="flex h-8 w-8 items-center justify-center rounded-lg border border-brand-200 bg-brand-50 text-brand-600 transition hover:bg-brand-600 hover:text-white"
               title="Аналитика"
             >

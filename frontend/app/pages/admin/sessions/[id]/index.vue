@@ -205,8 +205,8 @@ const STATUS_LABELS: Record<string, string> = {
           <UiButton variant="ghost" size="md" :disabled="loading" @click="refresh">
             <RefreshCw class="h-4 w-4" :class="loading && 'animate-spin'" />
           </UiButton>
-          <UiButton v-if="event" variant="outline" size="md" :to="`/admin/events/${event.id}?tab=sessions`">
-            <ArrowLeft class="h-4 w-4" /> К мероприятию
+          <UiButton variant="outline" size="md" to="/admin/sessions">
+            <ArrowLeft class="h-4 w-4" /> К сессиям
           </UiButton>
         </template>
       </PageHeader>
