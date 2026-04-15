@@ -79,20 +79,26 @@ public class PublicEventService {
         UUID previous = TenantContext.copy();
         try {
             TenantContext.set(tenant.getId());
-            entityManager.createNativeQuery("SET LOCAL app.current_tenant = :tid")
-                    .setParameter("tid", tenant.getId().toString())
+            // PostgreSQL does not accept bind parameters in SET LOCAL — use string formatting
+            // (safe: tenant.getId() is a validated UUID)
+            entityManager.createNativeQuery(
+                    "SET LOCAL app.current_tenant = '" + tenant.getId() + "'")
                     .executeUpdate();
 
             return resolveInsideTenant(eventSlug.trim().toLowerCase());
         } finally {
-            if (previous != null) {
-                TenantContext.set(previous);
-                entityManager.createNativeQuery("SET LOCAL app.current_tenant = :tid")
-                        .setParameter("tid", previous.toString())
-                        .executeUpdate();
-            } else {
-                TenantContext.clear();
-                entityManager.createNativeQuery("RESET app.current_tenant").executeUpdate();
+            try {
+                if (previous != null) {
+                    TenantContext.set(previous);
+                    entityManager.createNativeQuery(
+                            "SET LOCAL app.current_tenant = '" + previous + "'")
+                            .executeUpdate();
+                } else {
+                    TenantContext.clear();
+                    entityManager.createNativeQuery("RESET app.current_tenant").executeUpdate();
+                }
+            } catch (Exception ignored) {
+                // best-effort cleanup — transaction may already be aborted
             }
         }
     }

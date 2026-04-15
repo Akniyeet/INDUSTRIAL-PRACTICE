@@ -49,10 +49,11 @@ const { data, pending, error, refresh } = await useAsyncData(
 )
 
 const auth = useAuthStore()
+const config = useRuntimeConfig()
 
 useHead(() => ({
   title: data.value?.event?.title
-    ? `${data.value.event.title} — ${useRuntimeConfig().public.appName}`
+    ? `${data.value.event.title} — ${config.public.appName}`
     : 'Іс-шара',
   meta: data.value?.event?.description
     ? [{ name: 'description', content: data.value.event.description }]

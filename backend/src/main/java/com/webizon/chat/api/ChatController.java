@@ -7,6 +7,7 @@ import com.webizon.chat.model.ChatMessage;
 import com.webizon.chat.policy.ChatPolicyViolation;
 import com.webizon.chat.repo.ChatMessageRepository;
 import com.webizon.chat.service.ChatService;
+import com.webizon.tenancy.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -51,6 +52,7 @@ public class ChatController {
 
     private final ChatService chatService;
     private final ChatMessageRepository chatMessageRepository;
+    private final UserService userService;
 
     @PostMapping("/messages")
     @PreAuthorize("isAuthenticated()")
@@ -58,7 +60,7 @@ public class ChatController {
             @PathVariable UUID sessionId,
             @Valid @RequestBody SendMessageRequest request) {
 
-        UUID userId = CurrentUser.profileId();
+        UUID userId = userService.requireByKeycloakId(CurrentUser.keycloakId()).getId();
         String role = CurrentUser.role();
 
         var saved = chatService.sendMessage(new ChatService.SendMessageCommand(

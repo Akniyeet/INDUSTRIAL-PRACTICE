@@ -110,8 +110,8 @@ public class TenantService {
         UUID previousTenant = TenantContext.copy();
         try {
             TenantContext.set(tenant.getId());
-            entityManager.createNativeQuery("SET LOCAL app.current_tenant = :tid")
-                    .setParameter("tid", tenant.getId().toString())
+            entityManager.createNativeQuery(
+                    "SET LOCAL app.current_tenant = '" + tenant.getId() + "'")
                     .executeUpdate();
 
             Subscription subscription = Subscription.builder()

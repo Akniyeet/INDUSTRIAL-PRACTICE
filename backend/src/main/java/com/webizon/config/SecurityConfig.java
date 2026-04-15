@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -102,8 +103,12 @@ public class SecurityConfig {
                                 .decoder(multiIssuerJwtDecoder())
                                 .jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 )
-                // TenantContextFilter runs AFTER authentication so the JWT is already available.
-                .addFilterAfter(tenantContextFilter, UsernamePasswordAuthenticationFilter.class);
+                // TenantContextFilter runs AFTER BearerTokenAuthenticationFilter so the JWT
+                // is already validated and available in SecurityContextHolder. The previous
+                // position (after UsernamePasswordAuthenticationFilter) was too early —
+                // BearerTokenAuthenticationFilter runs at BasicAuthenticationFilter's position,
+                // which comes AFTER UsernamePasswordAuthenticationFilter in the chain.
+                .addFilterAfter(tenantContextFilter, BearerTokenAuthenticationFilter.class);
 
         return http.build();
     }
@@ -161,6 +166,7 @@ public class SecurityConfig {
         cfg.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
                 "http://localhost:3001",
+                "http://localhost:3003",
                 "http://localhost:8080",
                 "http://localhost:8081",
                 "https://*.webizon.kz",

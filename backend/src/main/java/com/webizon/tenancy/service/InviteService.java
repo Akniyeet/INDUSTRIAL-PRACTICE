@@ -365,8 +365,8 @@ public class InviteService {
         UUID[] createdMembershipId = new UUID[1];
 
         TenantContext.runWith(targetTenantId, () -> {
-            entityManager.createNativeQuery("SET LOCAL app.current_tenant = :tid")
-                    .setParameter("tid", targetTenantId.toString())
+            entityManager.createNativeQuery(
+                    "SET LOCAL app.current_tenant = '" + targetTenantId + "'")
                     .executeUpdate();
 
             // Step 5: create-or-reactivate the membership row.
@@ -474,8 +474,8 @@ public class InviteService {
     private void markExpiredInTenantScope(TenantInvite invite) {
         UUID targetTenantId = invite.getTenantId();
         TenantContext.runWith(targetTenantId, () -> {
-            entityManager.createNativeQuery("SET LOCAL app.current_tenant = :tid")
-                    .setParameter("tid", targetTenantId.toString())
+            entityManager.createNativeQuery(
+                    "SET LOCAL app.current_tenant = '" + targetTenantId + "'")
                     .executeUpdate();
             invite.markExpired();
             inviteRepository.save(invite);
