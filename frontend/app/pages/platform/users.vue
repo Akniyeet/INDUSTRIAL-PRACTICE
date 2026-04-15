@@ -67,7 +67,7 @@ function fmtRelative(iso: string | null | undefined) {
         <p class="text-xs text-slate-400">Все зарегистрированные аккаунты на платформе</p>
       </div>
       <button
-        class="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+        class="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
         :disabled="loading"
         @click="load(searchQ || undefined)"
       >
@@ -114,7 +114,7 @@ function fmtRelative(iso: string | null | undefined) {
               <div class="flex items-center gap-3">
                 <div
                   class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-                  :class="u.platformAdmin ? 'bg-violet-600 text-slate-900 dark:text-white' : 'bg-slate-700 text-slate-300'"
+                  :class="u.platformAdmin ? 'bg-violet-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'"
                 >
                   {{ (u.fullName || u.email).charAt(0).toUpperCase() }}
                 </div>
@@ -131,7 +131,7 @@ function fmtRelative(iso: string | null | undefined) {
             </td>
 
             <!-- Email -->
-            <td class="px-4 py-3 text-slate-300">{{ u.email }}</td>
+            <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ u.email }}</td>
 
             <!-- Verified -->
             <td class="px-4 py-3 text-center">

@@ -158,11 +158,23 @@
       }
     },
     {
-      "name": "google-name-mapper",
+      "name": "google-firstname-mapper",
       "identityProviderAlias": "google",
-      "identityProviderMapper": "oidc-full-name-idp-mapper",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
       "config": {
-        "syncMode": "INHERIT"
+        "syncMode": "INHERIT",
+        "user.attribute": "firstName",
+        "claim": "given_name"
+      }
+    },
+    {
+      "name": "google-lastname-mapper",
+      "identityProviderAlias": "google",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "user.attribute": "lastName",
+        "claim": "family_name"
       }
     }
   ],
@@ -187,6 +199,24 @@
       },
       "realmRoles": [
         "tenant_owner"
+      ]
+    },
+    {
+      "username": "webizon365@gmail.com",
+      "email": "webizon365@gmail.com",
+      "firstName": "Webizon",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Astana01+",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "platform_admin"
       ]
     }
   ]

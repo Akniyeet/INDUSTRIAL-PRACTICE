@@ -93,7 +93,7 @@ async function impersonate() {
               <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ tenant.displayName }}</h1>
               <p class="text-sm text-slate-400">slug: <span class="font-mono text-violet-400">{{ tenant.slug }}</span></p>
               <div class="mt-1 flex items-center gap-2">
-                <span class="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-300">{{ tenant.status }}</span>
+                <span class="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">{{ tenant.status }}</span>
                 <span v-if="tenant.trialEndsAt" class="text-xs text-amber-400">
                   Пробный до {{ fmtDate(tenant.trialEndsAt) }}
                 </span>

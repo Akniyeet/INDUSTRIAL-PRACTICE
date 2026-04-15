@@ -60,7 +60,7 @@ const vatPercent = computed(() => {
         <p class="text-xs text-slate-400">Доходы, НДС, комиссии — по всей платформе</p>
       </div>
       <button
-        class="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+        class="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
         :disabled="loading"
         @click="refresh"
       >
@@ -79,7 +79,7 @@ const vatPercent = computed(() => {
         <div class="mt-3 flex gap-4 text-sm">
           <div>
             <p class="text-xs text-slate-500">Субтотал (без НДС)</p>
-            <p class="font-semibold text-slate-300">{{ fmtKzt(data?.allTimeSubtotalKzt) }}</p>
+            <p class="font-semibold text-slate-700 dark:text-slate-300">{{ fmtKzt(data?.allTimeSubtotalKzt) }}</p>
           </div>
           <div>
             <p class="text-xs text-slate-500">НДС ({{ vatPercent }}%)</p>
@@ -236,7 +236,7 @@ const vatPercent = computed(() => {
     <div class="rounded-xl border border-violet-800/40 bg-violet-900/10 p-5">
       <div class="flex items-start gap-3">
         <DollarSign class="h-5 w-5 shrink-0 text-violet-400 mt-0.5" />
-        <div class="space-y-1 text-sm text-slate-300">
+        <div class="space-y-1 text-sm text-slate-700 dark:text-slate-300">
           <p class="font-semibold text-slate-900 dark:text-white">Структура платежей</p>
           <p>Субтотал — чистый доход платформы до налогов.</p>
           <p>НДС ({{ vatPercent }}%) — налог на добавленную стоимость, передаётся в бюджет.</p>
