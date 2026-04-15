@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -76,7 +77,7 @@ public class AttendanceTracker {
      * {@link AnalyticsEventType#ROOM_ENTERED} which in turn produces
      * the {@code ATTENDED} lead signal.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SessionAttendance join(UUID sessionId, UUID profileId) {
         Session session = requireSession(sessionId);
         Instant now = Instant.now();
