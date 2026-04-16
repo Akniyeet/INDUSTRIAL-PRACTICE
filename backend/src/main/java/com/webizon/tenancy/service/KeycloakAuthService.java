@@ -183,6 +183,28 @@ public class KeycloakAuthService {
     }
 
     /**
+     * Check whether a user with the given email address exists in Keycloak.
+     * Does not throw — returns {@code false} for any lookup failure.
+     */
+    public boolean userExistsByEmail(String email) {
+        try {
+            String adminToken = getAdminToken();
+            String uri = serverUrl + "/admin/realms/" + realm
+                    + "/users?email=" + java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8)
+                    + "&exact=true";
+            com.fasterxml.jackson.databind.JsonNode users = http.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + adminToken)
+                    .retrieve()
+                    .body(com.fasterxml.jackson.databind.JsonNode.class);
+            return users != null && users.isArray() && !users.isEmpty();
+        } catch (Exception e) {
+            log.warn("Could not verify email existence in Keycloak for {}: {}", email, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Look up a Keycloak user by exact email address and return their Keycloak UUID.
      *
      * @throws ResponseStatusException 404 if no matching user found

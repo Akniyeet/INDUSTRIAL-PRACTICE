@@ -123,19 +123,13 @@ public class AuthPublicController {
     @PostMapping("/password-reset/request")
     public java.util.Map<String, String> passwordResetRequest(
             @Valid @RequestBody PasswordResetRequestDto request) {
-        try {
-            // Verify the email exists in Keycloak before sending an OTP —
-            // we do this by triggering resetPassword with a dummy check,
-            // but actually we just generate the OTP and Keycloak lookup
-            // happens on confirm. So we send OTP unconditionally here and
-            // fail gracefully on confirm if the user doesn't exist.
-            otpService.generateAndSendPasswordReset(request.email());
-        } catch (ResponseStatusException e) {
-            if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) throw e;
-            // All other errors (e.g., mail send failure) are swallowed to
-            // prevent information leakage. The confirm step will fail properly.
-            log.warn("Password reset OTP silently failed for {}: {}", request.email(), e.getReason());
+        // Check existence first so the user gets immediate feedback on the
+        // email step rather than discovering the problem at the new-password step.
+        if (!keycloakAuthService.userExistsByEmail(request.email())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Этот email не зарегистрирован в системе");
         }
+        otpService.generateAndSendPasswordReset(request.email());
         return java.util.Map.of("status", "sent", "email", request.email());
     }
 

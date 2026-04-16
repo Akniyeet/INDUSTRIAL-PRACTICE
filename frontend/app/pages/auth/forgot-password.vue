@@ -12,6 +12,7 @@ const step = ref<'email' | 'otp' | 'newpass' | 'done'>('email')
 const email = ref('')
 const emailLoading = ref(false)
 const emailError = ref<string | null>(null)
+const emailNotRegistered = ref(false)  // true when backend returns 404
 
 // OTP step
 const otpDigits = ref(['', '', '', '', '', ''])
@@ -50,6 +51,7 @@ const strengthColor = computed(() => ['', 'bg-red-400', 'bg-amber-400', 'bg-blue
 
 async function submitEmail() {
   emailError.value = null
+  emailNotRegistered.value = false
   emailLoading.value = true
   try {
     await $fetch('/api/backend/v1/public/auth/password-reset/request', {
@@ -59,8 +61,12 @@ async function submitEmail() {
     step.value = 'otp'
     startResendTimer()
   } catch (e: unknown) {
-    const err = e as { data?: { detail?: string } }
-    emailError.value = err?.data?.detail ?? 'Не удалось отправить код. Попробуйте позже.'
+    const err = e as { data?: { detail?: string }; status?: number }
+    if (err?.status === 404) {
+      emailNotRegistered.value = true
+    } else {
+      emailError.value = err?.data?.detail ?? 'Не удалось отправить код. Попробуйте позже.'
+    }
   } finally {
     emailLoading.value = false
   }
@@ -203,7 +209,22 @@ onBeforeUnmount(() => { if (resendInterval) clearInterval(resendInterval) })
             Введите email — мы отправим код для сброса пароля
           </p>
 
-          <div v-if="emailError" class="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          <!-- Not registered notice -->
+          <div v-if="emailNotRegistered" class="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3.5">
+            <p class="text-sm font-medium text-amber-300">Этот email не зарегистрирован</p>
+            <p class="mt-1 text-xs text-amber-400/80">Хотите создать новый аккаунт?</p>
+            <NuxtLink
+              :to="{ path: '/auth/sign-up', query: route.query }"
+              class="mt-3 flex items-center justify-center gap-2 rounded-xl bg-amber-500/20 px-4 py-2.5 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/30 active:scale-[.98]"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3M13.5 19.5H6.75a2.25 2.25 0 01-2.25-2.25V6.75A2.25 2.25 0 016.75 4.5h10.5a2.25 2.25 0 012.25 2.25v3.75" />
+              </svg>
+              Зарегистрироваться бесплатно
+            </NuxtLink>
+          </div>
+
+          <div v-else-if="emailError" class="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             {{ emailError }}
           </div>
 
@@ -211,7 +232,11 @@ onBeforeUnmount(() => { if (resendInterval) clearInterval(resendInterval) })
             <div>
               <label class="mb-1.5 block text-sm font-medium text-slate-300">Email</label>
               <input v-model="email" type="email" autocomplete="email" required placeholder="you@example.com"
-                class="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-all focus:border-brand-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                class="w-full rounded-xl border bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-all focus:bg-white/[0.06] focus:outline-none focus:ring-2"
+                :class="emailNotRegistered
+                  ? 'border-amber-500/50 focus:border-amber-500/50 focus:ring-amber-500/20'
+                  : 'border-white/[0.08] focus:border-brand-500/50 focus:ring-brand-500/20'"
+                @input="emailNotRegistered = false; emailError = null" />
             </div>
 
             <button type="submit" :disabled="emailLoading || !email.trim()"
