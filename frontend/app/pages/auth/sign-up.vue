@@ -13,6 +13,7 @@ const confirmPassword = ref('')
 const showPass = ref(false)
 const loading = ref(false)
 const error = ref<string | null>(null)
+const alreadyExists = ref(false)   // true when 409 Conflict received
 const step = ref<'form' | 'otp'>('form')
 
 // OTP state
@@ -43,6 +44,7 @@ const strengthColor = computed(() => ['', 'bg-red-400', 'bg-amber-400', 'bg-blue
 async function submit() {
   if (password.value !== confirmPassword.value) { error.value = 'Пароли не совпадают'; return }
   error.value = null
+  alreadyExists.value = false
   loading.value = true
   try {
     // Register user first
@@ -58,8 +60,14 @@ async function submit() {
     step.value = 'otp'
     startResendTimer()
   } catch (e: unknown) {
-    const err = e as { data?: { detail?: string } }
-    error.value = err?.data?.detail ?? 'Ошибка при регистрации. Проверьте данные.'
+    const err = e as { data?: { detail?: string; status?: number }; status?: number }
+    const status = (err as { status?: number }).status
+    if (status === 409) {
+      alreadyExists.value = true
+      error.value = null
+    } else {
+      error.value = err?.data?.detail ?? 'Ошибка при регистрации. Проверьте данные.'
+    }
   } finally { loading.value = false }
 }
 
@@ -170,7 +178,17 @@ onBeforeUnmount(() => { if (resendInterval) clearInterval(resendInterval) })
           <div class="h-px flex-1 bg-white/[0.08]" />
         </div>
 
-        <div v-if="error" class="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <!-- Already registered notice -->
+        <div v-if="alreadyExists" class="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm">
+          <p class="font-medium text-amber-300">Этот email уже зарегистрирован</p>
+          <p class="mt-1 text-amber-400/80">
+            <NuxtLink :to="{ path: '/auth/sign-in', query: { ...route.query, email: email } }" class="underline underline-offset-2 hover:text-amber-300">Войти в аккаунт</NuxtLink>
+            &nbsp;или&nbsp;
+            <NuxtLink :to="{ path: '/auth/forgot-password', query: route.query }" class="underline underline-offset-2 hover:text-amber-300">восстановить пароль</NuxtLink>
+          </p>
+        </div>
+
+        <div v-else-if="error" class="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {{ error }}
         </div>
 

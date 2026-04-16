@@ -102,6 +102,37 @@ public class KeycloakAuthService {
         return loginWithPassword(email, password);
     }
 
+    /**
+     * Reset a user's password via the Keycloak Admin API.
+     * Looks up the user by email and sets a new non-temporary credential.
+     *
+     * @throws ResponseStatusException 404 if no user exists with the given email
+     */
+    public void resetPassword(String email, String newPassword) {
+        String adminToken = getAdminToken();
+        String userId = getUserIdByEmail(adminToken, email);
+
+        Map<String, Object> credential = Map.of(
+                "type", "password",
+                "value", newPassword,
+                "temporary", false
+        );
+
+        try {
+            http.put()
+                    .uri(serverUrl + "/admin/realms/" + realm + "/users/" + userId + "/reset-password")
+                    .header("Authorization", "Bearer " + adminToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(credential)
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("Password reset via Admin API for user {}", userId);
+        } catch (HttpClientErrorException e) {
+            log.error("Keycloak password reset error: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Ошибка при изменении пароля");
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Internal helpers
     // -----------------------------------------------------------------------
@@ -149,6 +180,35 @@ public class KeycloakAuthService {
 
         if (body == null) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Cannot get admin token");
         return body.path("access_token").asText();
+    }
+
+    /**
+     * Look up a Keycloak user by exact email address and return their Keycloak UUID.
+     *
+     * @throws ResponseStatusException 404 if no matching user found
+     */
+    private String getUserIdByEmail(String adminToken, String email) {
+        try {
+            String uri = serverUrl + "/admin/realms/" + realm
+                    + "/users?email=" + java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8)
+                    + "&exact=true";
+            com.fasterxml.jackson.databind.JsonNode users = http.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + adminToken)
+                    .retrieve()
+                    .body(com.fasterxml.jackson.databind.JsonNode.class);
+
+            if (users == null || !users.isArray() || users.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Пользователь с таким email не найден");
+            }
+            return users.get(0).path("id").asText();
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (HttpClientErrorException e) {
+            log.error("Keycloak user lookup error: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Ошибка при поиске пользователя");
+        }
     }
 
     private void createKeycloakUser(String adminToken, String fullName, String email, String password) {

@@ -17,6 +17,30 @@
 
 ---
 
+## 2026-04-16
+
+### Password Reset Flow — Email OTP
+**Не өзгерді:** Пайдаланушылар тіркелген email арқылы паролін қалпына келтіре алады.
+**Себебі:** "Забыли пароль?" мүмкіндігі жоқ болды. Тіркелген пайдаланушылар кіре алмай қалса тығырыққа тірелді.
+**Архитектура:** Email-ге 6 цифрлық OTP жіберіледі (бөлек Redis key namespace — `otp:reset:*`). OTP дұрыс болса Keycloak Admin API арқылы пароль өзгертіледі, автоматты JWT жауаппен қайтарылады.
+**Файлдар:**
+- `backend/.../tenancy/api/dto/PasswordResetRequestDto.java` — **ЖАҢА** (`{ email }`)
+- `backend/.../tenancy/api/dto/PasswordResetConfirmDto.java` — **ЖАҢА** (`{ email, code, newPassword }`)
+- `backend/.../tenancy/service/KeycloakAuthService.java` — `resetPassword(email, newPassword)` + `getUserIdByEmail()` Admin API
+- `backend/.../tenancy/service/OtpService.java` — `generateAndSendPasswordReset()` + `verifyPasswordResetOtp()` — бөлек namespace
+- `backend/.../tenancy/api/AuthPublicController.java` — `POST /api/v1/public/auth/password-reset/request` + `/confirm`
+- `frontend/app/pages/auth/forgot-password.vue` — **ЖАҢА** — 4 step wizard: email → OTP → жаңа пароль → done
+- `frontend/app/pages/auth/sign-in.vue` — "Забыли пароль?" сілтемесі қосылды (пароль жолы жанына)
+- `frontend/app/pages/auth/sign-up.vue` — 409 Conflict болса "уже зарегистрирован → войти / восстановить" хабар
+
+**Endpoint-тар:**
+```
+POST /api/v1/public/auth/password-reset/request   { email }              → 200 (email enumeration жоқ)
+POST /api/v1/public/auth/password-reset/confirm   { email, code, newPassword } → TokenResponse
+```
+
+---
+
 ## 2026-04-15
 
 ### Worktree Cleanup + Docker Healthcheck Fixes

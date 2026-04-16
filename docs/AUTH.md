@@ -33,8 +33,9 @@ Keycloak-тың hosted login бетіне redirect **жоқ**, тек Google OAu
 
 | Файл | Орналасуы | Не жасайды |
 |------|-----------|-----------|
-| `sign-in.vue` | `app/pages/auth/sign-in.vue` | Email/пароль кіру формасы |
-| `sign-up.vue` | `app/pages/auth/sign-up.vue` | Тіркелу + OTP верификация |
+| `sign-in.vue` | `app/pages/auth/sign-in.vue` | Email/пароль кіру формасы + "Забыли пароль?" сілтемесі |
+| `sign-up.vue` | `app/pages/auth/sign-up.vue` | Тіркелу + OTP верификация, 409 → "уже зарегистрирован" |
+| `forgot-password.vue` | `app/pages/auth/forgot-password.vue` | Пароль қалпына келтіру (4 step: email → OTP → жаңа пароль → done) |
 | `callback.vue` | `app/pages/auth/callback.vue` | Google OAuth callback handler |
 | `auth.ts` | `app/stores/auth.ts` | Pinia store — token, user, actions |
 | `auth.client.ts` | `app/plugins/auth.client.ts` | Hydrate + token refresh loop |
@@ -47,7 +48,7 @@ Keycloak-тың hosted login бетіне redirect **жоқ**, тек Google OAu
 
 | Файл | Орналасуы | Не жасайды |
 |------|-----------|-----------|
-| `AuthPublicController.java` | `tenancy/api/` | `/api/v1/public/auth/*` endpoints |
+| `AuthPublicController.java` | `tenancy/api/` | `/api/v1/public/auth/*` endpoints (login, register, OTP, password-reset) |
 | `AuthBootstrapController.java` | `tenancy/api/` | `/api/v1/auth/bootstrap` |
 | `KeycloakAuthService.java` | `tenancy/service/` | Keycloak HTTP calls |
 | `OtpService.java` | `tenancy/service/` | Redis OTP + email |
@@ -249,6 +250,58 @@ POST keycloak: grant_type=refresh_token
 ← жаңа { access_token, refresh_token, expires_in }
   ↓
 store + localStorage жаңартады
+```
+
+### 6.6 Пароль Қалпына Келтіру (Password Reset)
+
+```
+forgot-password.vue — step 1 (email):
+  ↓
+POST /api/v1/public/auth/password-reset/request
+    { email }
+  ↓
+AuthPublicController.passwordResetRequest()
+  ↓
+OtpService.generateAndSendPasswordReset(email)
+  1. Rate limit тексеру (5 attempts / 15 min, namespace: "otp:reset:rate:{email}")
+  2. 6 цифрлық код генерациялайды
+  3. Redis-ке сақтайды (5 минут TTL, namespace: "otp:reset:code:{email}")
+  4. Gmail SMTP арқылы "Код для сброса пароля" email жібереді
+  ↓
+← { status: "sent", email: "..." }
+  (email enumeration жоқ — пайдаланушы жоқ болса да 200 қайтарады)
+
+forgot-password.vue — step 2 (OTP):
+  пайдаланушы 6 цифр енгізеді
+  ↓
+  [step 3-ке өтеді — код конфирмде тексеріледі]
+
+forgot-password.vue — step 3 (жаңа пароль):
+  ↓
+POST /api/v1/public/auth/password-reset/confirm
+    { email, code, newPassword }
+  ↓
+AuthPublicController.passwordResetConfirm()
+  ↓
+1. OtpService.verifyPasswordResetOtp(email, code)
+   → Redis-тен код оқиды
+   → Дұрыс болса Redis-тен жояды (one-time use)
+   → Қате болса 400
+
+2. KeycloakAuthService.resetPassword(email, newPassword)
+   → getAdminToken()
+   → getUserIdByEmail(adminToken, email) — Admin API: GET /admin/realms/webizon/users?email=...&exact=true
+   → PUT /admin/realms/webizon/users/{userId}/reset-password
+       { "type": "password", "value": newPassword, "temporary": false }
+
+3. loginWithPassword(email, newPassword)
+   ← жаңа TokenResponse
+  ↓
+← TokenResponse (access_token, refresh_token, expires_in)
+  ↓
+auth._applyTokens(tokens) → bootstrap → setSession()
+  ↓
+forgot-password.vue — step 4 (done) + автоматты кіру
 ```
 
 ### 6.5 OTP Email Верификация

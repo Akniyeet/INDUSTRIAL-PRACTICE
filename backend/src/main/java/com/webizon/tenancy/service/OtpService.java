@@ -28,12 +28,18 @@ import java.time.Duration;
 @Slf4j
 public class OtpService {
 
-    private static final String OTP_CODE_PREFIX = "otp:code:";
+    // Login OTP keys
+    private static final String OTP_CODE_PREFIX  = "otp:code:";
     private static final String OTP_TOKEN_PREFIX = "otp:token:";
-    private static final String RATE_PREFIX = "otp:rate:";
-    private static final Duration TTL = Duration.ofMinutes(5);
+    private static final String RATE_PREFIX      = "otp:rate:";
+
+    // Password-reset OTP keys (separate namespace to avoid collisions)
+    private static final String RESET_CODE_PREFIX = "otp:reset:code:";
+    private static final String RESET_RATE_PREFIX  = "otp:reset:rate:";
+
+    private static final Duration TTL         = Duration.ofMinutes(5);
     private static final Duration RATE_WINDOW = Duration.ofMinutes(15);
-    private static final int MAX_ATTEMPTS = 5;
+    private static final int     MAX_ATTEMPTS = 5;
 
     private final StringRedisTemplate redis;
     private final JavaMailSender mailSender;
@@ -108,6 +114,81 @@ public class OtpService {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Password-reset OTP (no credential escrow — just code verification)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Generate a password-reset OTP and email it.
+     * No credentials are validated here — any caller can request a reset.
+     * Rate-limited the same way as the login OTP flow (5 attempts / 15 min).
+     */
+    public void generateAndSendPasswordReset(String email) {
+        String key = email.toLowerCase();
+
+        String rateKey = RESET_RATE_PREFIX + key;
+        Long attempts = redis.opsForValue().increment(rateKey);
+        if (attempts != null && attempts == 1) redis.expire(rateKey, RATE_WINDOW);
+        if (attempts != null && attempts > MAX_ATTEMPTS) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Слишком много попыток. Подождите 15 минут.");
+        }
+
+        String code = String.valueOf(random.nextInt(900_000) + 100_000);
+        redis.opsForValue().set(RESET_CODE_PREFIX + key, code, TTL);
+
+        sendPasswordResetEmail(email, code);
+        log.info("Password-reset OTP sent to {}", email);
+    }
+
+    /**
+     * Verify the password-reset OTP. Deletes the code on success (one-time use).
+     *
+     * @throws ResponseStatusException 400 if expired or wrong code
+     */
+    public void verifyPasswordResetOtp(String email, String code) {
+        String key = email.toLowerCase();
+        String codeKey = RESET_CODE_PREFIX + key;
+
+        String stored = redis.opsForValue().get(codeKey);
+        if (stored == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Код истёк. Запросите новый код.");
+        }
+        if (!stored.equals(code.trim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Неверный код. Проверьте почту.");
+        }
+
+        redis.delete(codeKey);
+    }
+
+    // -----------------------------------------------------------------------
+    // Email delivery
+    // -----------------------------------------------------------------------
+
+    private void sendPasswordResetEmail(String email, String code) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setTo(email);
+            helper.setFrom("webizon365@gmail.com", "Webizon");
+            helper.setReplyTo("webizon365@gmail.com", "Webizon Support");
+            helper.setSubject("Код для сброса пароля — Webizon");
+            mimeMessage.setHeader("X-Mailer", "Webizon Platform");
+            mimeMessage.setHeader("X-Priority", "1");
+            mimeMessage.setHeader("Precedence", "bulk");
+            mimeMessage.setHeader("List-Unsubscribe", "<mailto:webizon365@gmail.com?subject=unsubscribe>");
+            String plainText = "Ваш код для сброса пароля: " + code
+                    + "\n\nКод действителен 5 минут.\n"
+                    + "Если вы не запрашивали смену пароля, просто проигнорируйте это письмо.\n\n— Webizon";
+            helper.setText(plainText, buildPasswordResetHtmlEmail(code));
+            mailSender.send(mimeMessage);
+        } catch (Exception e) {
+            log.error("Failed to send password-reset OTP email to {}: {}", email, e.getMessage());
+        }
+    }
+
     private void sendEmail(String email, String code) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -128,6 +209,89 @@ public class OtpService {
         } catch (Exception e) {
             log.error("Failed to send OTP email to {}: {}", email, e.getMessage());
         }
+    }
+
+    private String buildPasswordResetHtmlEmail(String code) {
+        StringBuilder digits = new StringBuilder();
+        for (char c : code.toCharArray()) {
+            digits.append(String.format(
+                "<td style=\"width:48px;height:56px;background:#fff1f2;border:2px solid #fecdd3;" +
+                "border-radius:12px;text-align:center;font-size:28px;font-weight:800;" +
+                "color:#be123c;font-family:'DM Sans',Arial,sans-serif;letter-spacing:0\">" +
+                "%c</td><td style=\"width:8px\"></td>", c));
+        }
+
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="margin:0;padding:0;background:#f8fafc;font-family:'DM Sans',-apple-system,Arial,sans-serif">
+              <table width="100%%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:40px 20px">
+                <tr><td align="center">
+                  <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06)">
+                    <tr>
+                      <td style="background:linear-gradient(135deg,#0f172a 0%%,#1e293b 100%%);padding:32px 40px;text-align:center">
+                        <div style="font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.5px">Webizon</div>
+                        <div style="margin-top:4px;font-size:13px;color:rgba(255,255,255,0.5)">Платформа для вебинаров</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:40px 40px 20px;text-align:center">
+                        <div style="width:56px;height:56px;margin:0 auto;background:#fff1f2;border-radius:16px;line-height:56px;font-size:24px">
+                          &#128273;
+                        </div>
+                        <h1 style="margin:20px 0 8px;font-size:22px;font-weight:700;color:#0f172a">
+                          Сброс пароля
+                        </h1>
+                        <p style="margin:0;font-size:14px;color:#64748b;line-height:1.5">
+                          Введите этот код для установки нового пароля
+                        </p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:16px 40px 32px;text-align:center">
+                        <table cellpadding="0" cellspacing="0" style="margin:0 auto">
+                          <tr>
+                            """ + digits.toString() + """
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:0 40px 20px;text-align:center">
+                        <div style="display:inline-block;background:#fff1f2;border:2px solid #fecdd3;border-radius:12px;padding:12px 32px">
+                          <span style="font-size:32px;font-weight:900;color:#be123c;letter-spacing:8px;font-family:'DM Sans',monospace;user-select:all">""" + code + """
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:0 40px 32px;text-align:center">
+                        <div style="display:inline-block;background:#fef3c7;color:#92400e;font-size:12px;font-weight:600;padding:6px 16px;border-radius:20px">
+                          &#9200; Код действителен 5 минут
+                        </div>
+                      </td>
+                    </tr>
+                    <tr><td style="padding:0 40px"><div style="height:1px;background:#e2e8f0"></div></td></tr>
+                    <tr>
+                      <td style="padding:24px 40px 32px;text-align:center">
+                        <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5">
+                          Если вы не запрашивали сброс пароля, проигнорируйте это письмо.<br>
+                          Ваш пароль остаётся прежним.
+                        </p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="background:#f8fafc;padding:20px 40px;text-align:center;border-top:1px solid #f1f5f9">
+                        <p style="margin:0;font-size:11px;color:#94a3b8">&copy; 2026 Webizon &middot; Казахстан</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td></tr>
+              </table>
+            </body>
+            </html>
+            """;
     }
 
     private String buildHtmlEmail(String code) {

@@ -77,7 +77,12 @@ function loginWithGoogle() {
                 class="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-all focus:border-brand-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
             </div>
             <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-300">Пароль</label>
+              <div class="mb-1.5 flex items-center justify-between">
+                <label class="text-sm font-medium text-slate-300">Пароль</label>
+                <NuxtLink :to="{ path: '/auth/forgot-password', query: route.query }" class="text-xs text-slate-500 transition hover:text-brand-400">
+                  Забыли пароль?
+                </NuxtLink>
+              </div>
               <div class="relative">
                 <input v-model="password" :type="showPass ? 'text' : 'password'" autocomplete="current-password" required placeholder="••••••••"
                   class="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 pr-11 text-sm text-white placeholder:text-slate-500 transition-all focus:border-brand-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
