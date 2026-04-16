@@ -189,9 +189,11 @@ public class KeycloakAuthService {
     public boolean userExistsByEmail(String email) {
         try {
             String adminToken = getAdminToken();
-            String uri = serverUrl + "/admin/realms/" + realm
+            // Use URI.create() so RestClient doesn't re-encode the already-encoded query string.
+            java.net.URI uri = java.net.URI.create(
+                    serverUrl + "/admin/realms/" + realm
                     + "/users?email=" + java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8)
-                    + "&exact=true";
+                    + "&exact=true");
             com.fasterxml.jackson.databind.JsonNode users = http.get()
                     .uri(uri)
                     .header("Authorization", "Bearer " + adminToken)
@@ -211,9 +213,10 @@ public class KeycloakAuthService {
      */
     private String getUserIdByEmail(String adminToken, String email) {
         try {
-            String uri = serverUrl + "/admin/realms/" + realm
+            java.net.URI uri = java.net.URI.create(
+                    serverUrl + "/admin/realms/" + realm
                     + "/users?email=" + java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8)
-                    + "&exact=true";
+                    + "&exact=true");
             com.fasterxml.jackson.databind.JsonNode users = http.get()
                     .uri(uri)
                     .header("Authorization", "Bearer " + adminToken)
