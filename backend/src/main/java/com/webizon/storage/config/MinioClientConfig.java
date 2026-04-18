@@ -41,6 +41,21 @@ public class MinioClientConfig {
     private final MinioProperties properties;
 
     /**
+     * Region hard-pinned on both clients. MinIO has no real concept of
+     * regions (it accepts any value) but the Java SDK, if region is
+     * left blank, calls {@code GET /?location} on the endpoint before
+     * signing every presigned URL. That round-trip is fine for the
+     * internal endpoint but catastrophic for the public one in local
+     * dev: the public endpoint hostname (e.g. {@code localhost:9010},
+     * {@code host.docker.internal:9010}) is not always reachable from
+     * inside the backend container — only the browser needs to reach
+     * it. Pinning the region skips the lookup, so presign becomes a
+     * pure local operation (HMAC over the request line) and the
+     * backend no longer needs a split-horizon route to MinIO.
+     */
+    private static final String FIXED_REGION = "us-east-1";
+
+    /**
      * Client used for all server-side object operations (upload,
      * stat, delete). Bound to the internal hostname so traffic does
      * not hairpin through the public load balancer.
@@ -49,21 +64,23 @@ public class MinioClientConfig {
     public MinioClient internalMinioClient() {
         return MinioClient.builder()
                 .endpoint(properties.endpoint())
+                .region(FIXED_REGION)
                 .credentials(properties.accessKey(), properties.secretKey())
                 .build();
     }
 
     /**
      * Client used exclusively to mint presigned URLs handed to the
-     * browser. Must be bound to the public endpoint — the browser
-     * cannot resolve the internal hostname and S3 V4 signatures bake
-     * the hostname into the signature, so a URL signed against the
-     * wrong endpoint will be rejected as invalid.
+     * browser. The endpoint hostname is the one baked into the
+     * signature that the browser replays; {@link #FIXED_REGION} skips
+     * the preflight {@code getBucketLocation} call so the backend never
+     * has to reach this hostname itself.
      */
     @Bean(name = "publicMinioClient")
     public MinioClient publicMinioClient() {
         return MinioClient.builder()
                 .endpoint(properties.publicEndpoint())
+                .region(FIXED_REGION)
                 .credentials(properties.accessKey(), properties.secretKey())
                 .build();
     }

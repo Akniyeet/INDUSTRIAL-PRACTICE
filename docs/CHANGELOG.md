@@ -17,6 +17,64 @@
 
 ---
 
+## 2026-04-19 — MinIO: SDK region pin (presign split-horizon fix)
+
+### Root-cause fix: presigned URLs fail until backend can reach the public endpoint
+
+**Симптом:** Жаңа вебинарға cover уплоад етейін десең `setCoverFile()` silent fail болды: `api.storage.createSlot()` → backend 500 / connection refused, UI жылдам "ешнәрсе болмаған сияқты" күйде қалады да, форма cover-сыз сақталады.
+
+**Түбір себеп (екі қабатты):**
+1. **MinIO контейнері Docker network-тан үзіліп қалған.** `docker inspect webizon-minio` → `Networks: {}`. Бұл презигннинг кезінде backend-тен `minio:9000` DNS-і шешілмеуге әкелді.
+2. **MinIO Java SDK `getPresignedObjectUrl()` ішінде `getBucketLocation` preflight call жасайды** (егер `region` берілмесе). Ол call endpoint-тің host-ына барады — яғни `publicMinioClient` үшін `MINIO_PUBLIC_ENDPOINT`-қа. Осы endpoint browser-ге арналған (`localhost:9010` немесе `host.docker.internal:9010`), backend контейнеріне оны шешуге міндет емес. Преflight кешіккенде немесе fail болғанда → presign URL жасалмайды → frontend қолда presigned URL жоқ → upload fail. Бұл CLAUDE.md §19-дағы split-horizon ережесінің қаттылық көзі болды.
+
+**Шешімі (permanent, architectural):**
+1. **Екі MinioClient bean-де де `.region("us-east-1")` тіркелді** (`MinioClientConfig.java`). MinIO region-ды шын мәнінде қолданбайды — бірақ SDK региондық параметр бар болса preflight call-ды skip етеді. Presign енді таза local HMAC операциясы болды: backend ешқашан publicMinioEndpoint-қа network-пен тимейді.
+2. Нәтиже: `MINIO_PUBLIC_ENDPOINT=http://localhost:9010` (үйреншікті browser-friendly mapping) backend-ті сындырмайды. Split-horizon талабы жойылды.
+3. Bonus: `MinioBucketInitializer` бөлек `@Component` болып `ApplicationReadyEvent`-те жұмыс істейді — бұрын `@PostConstruct` ішінде self-referential `@Bean` call circular dep-ке әкелетін; қазір clean.
+4. MinIO контейнері қайта Docker network-қа қосылды (`docker compose up -d minio`), бар buckets автоматты түрде re-ensure-алды, `webizon-covers` үшін anonymous `s3:GetObject` policy қайта орнатылды (idempotent).
+
+**Файлдар:**
+- `backend/src/main/java/com/webizon/storage/config/MinioClientConfig.java` — `FIXED_REGION = "us-east-1"` екі bean-де де, толық javadoc split-horizon мәселесі неге жойылғанын түсіндіреді.
+- `.env`, `.env.example` — `MINIO_PUBLIC_ENDPOINT` түсіндірмесі жаңартылды (енді region pin бар, split-horizon constraint жоқ).
+
+**Runtime верификация (3 wb end-to-end):**
+- `POST /api/v1/storage/uploads` → `201` presigned URL `localhost:9010` host-пен ✅
+- Browser PUT `--data-binary` → `HTTP 200` MinIO-дан ✅
+- `POST /api/v1/storage/uploads/{id}/confirm` → `state=UPLOADED` ✅
+- `GET /api/v1/storage/{id}/download-url` + GET → 68 байт байт-by-байт сәйкес (`cmp` OK) ✅
+- `POST /api/v1/events` × 3 (`e2e-demo-1/2/3`) → 3 DRAFT event coverImageUrl-мен құрылды ✅
+
+---
+
+### Keycloak: phantom `tenant_id` JWT claim-і жойылды (defense-in-depth)
+
+**Симптом:** Upload cycle сәтті болғанмен, event create кейде `file_assets_tenant_id_fkey` FK violation қайтарды — себебі JWT-де `tenant_id` claim-і DB-дағы нақты tenant UUID-мен келіспейтін болатын (realm-JSON-да қолмен пінделген eski UUID-дар қалған еді).
+
+**Түбір себеп:** `webizon-frontend` client-інде `profile_id` user-attribute mapper-імен қатар `tenant_id` user-attribute mapper де тұрған еді. Keycloak жаңа orphan user-ларға да sub=random UUID қоятындықтан, JWT-де DB-да жоқ tenant_id келетін. `TenantContextFilter` JWT-ді bірінші оқитындықтан, заңды X-Tenant-Id header бәрібір silent override-талды.
+
+**Шешімі (permanent):**
+1. Live Keycloak users-тан `tenant_id` attribute очищено (`kcadm.sh update users/... -s 'attributes={}'`) — екі seed user үшін де.
+2. `webizon-frontend` client-тің `tenant_id` protocol mapper delete-ленді.
+3. Realm JSON-дан `tenant_id` attribute және mapper блоктары алынды (fresh clone-да қайталанбау үшін). `TenantContextFilter` енді JWT-де tenant_id жоқ болғанда ашық X-Tenant-Id header fallback-ті қолданады — frontend bootstrap → memberships → per-request header pattern стандартты.
+
+**Файлдар:**
+- `infra/keycloak/import/webizon-realm.json` — seed admin-дан `tenant_id` attribute, mapper блогы алынды.
+
+---
+
+### V022 файлдық drift → immutable migration rule қалпына келтірілді
+
+**Симптом:** Backend rebuild кезінде `Migration checksum mismatch for migration version 022` Flyway validation fail, JPA контекст ашылмай backend crash-loop-қа кетеді.
+
+**Түбір себеп:** Алдыңғы session-де V022 файлы оң жақта (`gen_random_uuid()` + slug-based join) редакцияланды да, ол edit JAR-ға жетпеді (тек file-disk-те болды). Жаңа build Maven-мен едітілген V022-ны JAR-ға пакеттеді де, бұрын apply болған checksum-мен келіспеді.
+
+**Шешімі (architectural):** CLAUDE.md §20-дағы "migrations are immutable once applied" rule-ін құрметтеу — V022 disk-тегі committed git content-іне қайтарылды (`git checkout HEAD -- ...V022...`). Контент тарихи `11111111-...` UUID-мен және `ON CONFLICT DO NOTHING`-пен бірдей. Келешек архитектуралық жақсартулар (UUID-ды Keycloak-тан decouple ету) енді жеке migration-мен келеді — ескі-ге edit етпей.
+
+**Файлдар:**
+- `backend/src/main/resources/db/migration/V022__seed_dev_workspace.sql` — committed form-қа revert.
+
+---
+
 ## 2026-04-19 — Admin: Event wizard, tenant bootstrap, UI polish
 
 ### V022 bootstrap миграциясы идемпотентті қылынды (followup)

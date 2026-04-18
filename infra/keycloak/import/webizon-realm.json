@@ -79,20 +79,6 @@
       },
       "protocolMappers": [
         {
-          "name": "tenant_id",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-attribute-mapper",
-          "consentRequired": false,
-          "config": {
-            "userinfo.token.claim": "true",
-            "user.attribute": "tenant_id",
-            "id.token.claim": "true",
-            "access.token.claim": "true",
-            "claim.name": "tenant_id",
-            "jsonType.label": "String"
-          }
-        },
-        {
           "name": "profile_id",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-property-mapper",
@@ -364,9 +350,6 @@
           "temporary": false
         }
       ],
-      "attributes": {
-        "tenant_id": ["11111111-1111-1111-1111-111111111111"]
-      },
       "realmRoles": [
         "platform_admin",
         "tenant_owner"
