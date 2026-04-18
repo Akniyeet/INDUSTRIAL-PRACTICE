@@ -19,6 +19,30 @@
 
 ## 2026-04-19 — Admin: Event wizard, tenant bootstrap, UI polish
 
+### V022 bootstrap миграциясы идемпотентті қылынды (followup)
+**Симптом:** `docker compose up -d --build backend` кейін backend старт етпей қалды. Log: `Migration V022 failed — duplicate key value violates unique constraint "tenants_slug_key"`. Салдары: `webizon365@gmail.com` логин беті "Неверный email или пароль" көрсетті — backend өлі болғандықтан.
+
+**Түбір себеп:** V022-да `ON CONFLICT (id) DO NOTHING` болған — тек primary key конфликтін ұстайтын. Дев ортасында `slug = 'webizon'` + басқа UUID бар tenant row бұрын қолмен құрылған болса (session ортасында fix-тер жасалған кезде болғандай), V022 осыны алмай slug constraint-қа жабылды.
+
+**Шешімі:**
+1. `V022__seed_dev_workspace.sql` — `ON CONFLICT (id) DO NOTHING` → `ON CONFLICT DO NOTHING` (target көрсетілмеген). Бұл Postgres-те кез келген unique/exclusion constraint конфликтін silent skip етеді.
+2. Failed Flyway жазбасы `flyway_schema_history`-дан DELETE жасалды, зиянды tenant row тазаланды, backend restart — V022 қайта сәтті орындалды (id=`11111111-...`, slug=`webizon`).
+3. Жаңа runbook: `docs/runbooks/flyway-failed-migration.md` — осы сценарий қайталанған жағдайда қадам-қадам fix.
+
+**Файлдар:**
+- `backend/src/main/resources/db/migration/V022__seed_dev_workspace.sql`
+- `docs/runbooks/flyway-failed-migration.md` (жаңа)
+
+**Runtime верификация:**
+- Backend старт: `Started WebizonApplication in 9.9s` ✅
+- Keycloak password grant: HTTP 200 ✅
+- `SELECT id, slug FROM tenants` → `11111111-... | webizon` ✅
+- Flyway: V022 success=true ✅
+
+**Сабақ:** Commit-ке енген `.sql` файлды **ешқашан** өзгертпеңіз (checksum mismatch). Seed миграцияларда `ON CONFLICT DO NOTHING` (без target) — идемпотенттіліктің қауіпсіз дефолты.
+
+
+
 ### Step-aware валидация + форма focus жалғыз сызық
 **Не өзгерді:** Event Wizard (6 қадам) әр қадамда міндетті өрістер толтырылмаса, келесі қадамға өткізбейді — міндетті өрістер қызыл болып белгіленеді. Бұрын валидация тек бірінші қадамда және соңғы submit кезінде («Проверьте заполненные поля» toast) жүретін, қолданушы 6-қадамға келіп қана проблема жайлы білетін. Сонымен қатар фокустағы `<input>` / `<textarea>` / `<select>` енді екі сызық емес, **бір** линияны ғана көрсетеді (бұрын border + ring қабаттасып тұрды).
 

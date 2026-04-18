@@ -14,7 +14,11 @@
 -- (GET /api/v1/events returned 403 because the user had no membership).
 --
 -- Idempotent:
---   • The tenant row is ON CONFLICT (id) DO NOTHING.
+--   • The tenant row uses ON CONFLICT DO NOTHING (no target) so that a
+--     pre-existing row with the same slug OR id is simply skipped —
+--     earlier manual seeds during dev could leave a row with the same
+--     slug but a different UUID, which a slug-specific conflict would
+--     miss. (We still pin the UUID for Keycloak attribute parity.)
 --   • The tenant_users row is only inserted if the user has already
 --     been bootstrapped into our mirror via UserService.bootstrapFromJwt().
 -- =====================================================================
@@ -32,7 +36,7 @@ INSERT INTO tenants (
     'KZ', 'KZT', 'ru-KZ', 'Asia/Almaty',
     'ACTIVE',
     now() + INTERVAL '14 days'
-) ON CONFLICT (id) DO NOTHING;
+) ON CONFLICT DO NOTHING;
 
 -- Link the seed admin as TENANT_OWNER of the demo workspace.
 -- Skipped if the user row is not yet present (they haven't logged in
