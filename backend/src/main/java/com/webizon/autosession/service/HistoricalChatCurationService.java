@@ -101,6 +101,64 @@ public class HistoricalChatCurationService {
         return message;
     }
 
+    /**
+     * Toggle {@link ChatMessage#isExcludedFromReplay()} — flips the current
+     * state. Used by the frontend single-click action on the review table.
+     */
+    @Transactional
+    public ChatMessage toggleReplay(UUID sourceSessionId, UUID messageId) {
+        ChatMessage message = requireMessageInSession(sourceSessionId, messageId);
+        boolean next = !message.isExcludedFromReplay();
+        message.setExcludedFromReplay(next);
+        log.info("Toggled replay exclusion for message {} → {} (source session {})",
+                messageId, next, sourceSessionId);
+        return message;
+    }
+
+    /**
+     * Exclude multiple messages from replay in one transaction.
+     *
+     * @return number of rows actually changed (already-excluded rows are skipped)
+     */
+    @Transactional
+    public int bulkExclude(UUID sourceSessionId, java.util.List<UUID> messageIds) {
+        requireEndedLiveSession(sourceSessionId);
+        int changed = 0;
+        for (UUID id : messageIds) {
+            ChatMessage msg = chatMessageRepository.findById(id).orElse(null);
+            if (msg == null || !msg.getSessionId().equals(sourceSessionId)) continue;
+            if (!msg.isExcludedFromReplay()) {
+                msg.setExcludedFromReplay(true);
+                changed++;
+            }
+        }
+        log.info("Bulk-excluded {}/{} messages from replay (source session {})",
+                changed, messageIds.size(), sourceSessionId);
+        return changed;
+    }
+
+    /**
+     * Restore multiple messages to the replay stream in one transaction.
+     *
+     * @return number of rows actually changed
+     */
+    @Transactional
+    public int bulkInclude(UUID sourceSessionId, java.util.List<UUID> messageIds) {
+        requireEndedLiveSession(sourceSessionId);
+        int changed = 0;
+        for (UUID id : messageIds) {
+            ChatMessage msg = chatMessageRepository.findById(id).orElse(null);
+            if (msg == null || !msg.getSessionId().equals(sourceSessionId)) continue;
+            if (msg.isExcludedFromReplay()) {
+                msg.setExcludedFromReplay(false);
+                changed++;
+            }
+        }
+        log.info("Bulk-included {}/{} messages in replay (source session {})",
+                changed, messageIds.size(), sourceSessionId);
+        return changed;
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------

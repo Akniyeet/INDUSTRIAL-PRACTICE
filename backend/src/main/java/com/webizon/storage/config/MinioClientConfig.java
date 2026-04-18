@@ -3,11 +3,15 @@ package com.webizon.storage.config;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
-import jakarta.annotation.PostConstruct;
+import io.minio.SetBucketPolicyArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 
 /**
  * Wires the MinIO SDK into the Spring context.
@@ -24,10 +28,10 @@ import org.springframework.context.annotation.Configuration;
  *       browser against the public CDN.</li>
  * </ul>
  *
- * <p>On startup, the {@code @PostConstruct} hook uses the internal
- * client to create each configured bucket if it does not already
- * exist. This is idempotent and safe to run on every boot — it means
- * a fresh MinIO container needs no manual {@code mc mb} commands.
+ * <p>Bucket initialization is handled by {@link MinioBucketInitializer},
+ * a separate component that fires on {@link ApplicationReadyEvent} to
+ * avoid the self-referential {@code @Bean} call that caused a circular
+ * dependency when the init was done in {@code @PostConstruct}.
  */
 @Configuration
 @RequiredArgsConstructor
@@ -65,39 +69,79 @@ public class MinioClientConfig {
     }
 
     /**
-     * Ensures every configured bucket exists on startup.
-     *
-     * <p>Uses the internal client. Any failure here is logged but not
-     * fatal — a missing bucket will surface as a putObject error later
-     * and get its own diagnostic — because failing application boot
-     * because a single MinIO connection flaked during compose-up
-     * would be an unhelpful cascade.
+     * Ensures every configured bucket exists once the application is
+     * fully started. Separated from {@link MinioClientConfig} so that
+     * the {@code @Bean} methods on the config class are not called
+     * self-referentially during {@code @PostConstruct}, which would
+     * create a circular dependency with beans that inject the clients.
      */
-    @PostConstruct
-    void ensureBuckets() {
-        MinioClient client = internalMinioClient();
-        MinioProperties.Buckets b = properties.buckets();
-        ensureBucket(client, b.covers());
-        ensureBucket(client, b.ctaFiles());
-        ensureBucket(client, b.recordings());
-        ensureBucket(client, b.invoices());
-    }
+    @Component
+    @Slf4j
+    static class MinioBucketInitializer implements ApplicationListener<ApplicationReadyEvent> {
 
-    private void ensureBucket(MinioClient client, String bucket) {
-        try {
-            boolean exists = client.bucketExists(
-                    BucketExistsArgs.builder().bucket(bucket).build());
-            if (!exists) {
-                client.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
-                log.info("MinIO bucket created: {}", bucket);
-            } else {
-                log.debug("MinIO bucket already present: {}", bucket);
+        private final MinioProperties properties;
+        private final MinioClient internalClient;
+
+        MinioBucketInitializer(MinioProperties properties,
+                               @Qualifier("internalMinioClient") MinioClient internalClient) {
+            this.properties = properties;
+            this.internalClient = internalClient;
+        }
+
+        @Override
+        public void onApplicationEvent(ApplicationReadyEvent event) {
+            MinioProperties.Buckets b = properties.buckets();
+            ensureBucket(b.covers());
+            ensureBucket(b.ctaFiles());
+            ensureBucket(b.recordings());
+            ensureBucket(b.invoices());
+            // Cover images are public-by-design (the landing page is
+            // unauthenticated) so we grant anonymous read on the
+            // covers bucket. Without this the browser would need a
+            // presigned URL whose signature expires 15 minutes after
+            // upload, breaking the landing page every time.
+            makePublicReadOnly(b.covers());
+        }
+
+        private void ensureBucket(String bucket) {
+            try {
+                boolean exists = internalClient.bucketExists(
+                        BucketExistsArgs.builder().bucket(bucket).build());
+                if (!exists) {
+                    internalClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
+                    log.info("MinIO bucket created: {}", bucket);
+                } else {
+                    log.debug("MinIO bucket already present: {}", bucket);
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to ensure MinIO bucket {}: {}", bucket, ex.getMessage());
             }
-        } catch (Exception ex) {
-            // Do not fail boot — a transient MinIO outage at startup
-            // should not take the whole API down. Upload attempts will
-            // surface the real error if the bucket is still missing.
-            log.warn("Failed to ensure MinIO bucket {}: {}", bucket, ex.getMessage());
+        }
+
+        /**
+         * Grant anonymous GET permission on every object in the bucket.
+         * Used for buckets whose contents are legitimately public
+         * (cover images shown on landing pages). Idempotent — safe to
+         * re-apply on every startup.
+         */
+        private void makePublicReadOnly(String bucket) {
+            String policy = "{"
+                    + "\"Version\":\"2012-10-17\","
+                    + "\"Statement\":[{"
+                    + "\"Effect\":\"Allow\","
+                    + "\"Principal\":{\"AWS\":[\"*\"]},"
+                    + "\"Action\":[\"s3:GetObject\"],"
+                    + "\"Resource\":[\"arn:aws:s3:::" + bucket + "/*\"]"
+                    + "}]}";
+            try {
+                internalClient.setBucketPolicy(SetBucketPolicyArgs.builder()
+                        .bucket(bucket)
+                        .config(policy)
+                        .build());
+                log.info("MinIO bucket {} set to public-read", bucket);
+            } catch (Exception ex) {
+                log.warn("Failed to set public-read policy on {}: {}", bucket, ex.getMessage());
+            }
         }
     }
 }

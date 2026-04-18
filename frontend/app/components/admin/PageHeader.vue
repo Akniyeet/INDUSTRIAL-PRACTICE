@@ -1,46 +1,73 @@
 <script setup lang="ts">
 /**
- * Standard page header used at the top of every admin view.
+ * Admin page header — the standard top-of-page block used across every admin
+ * route. Renders (in order):
  *
- * <p>Accepts a title, an optional subtitle, and an `actions` slot for the
- * primary and secondary buttons on the right. The `breadcrumbs` prop drives
- * a ChevronRight-separated trail of navigable crumbs above the title.
+ * <ol>
+ *   <li>An optional breadcrumb trail (last item is shown as plain text).</li>
+ *   <li>The page title in the brand display face.</li>
+ *   <li>An optional muted subtitle.</li>
+ *   <li>An optional right-aligned slot for action buttons.</li>
+ * </ol>
+ *
+ * <p>Originally this component silently swallowed title/subtitle and only
+ * rendered the actions slot. Pages relied on those props but got blank
+ * output, which made the admin shell feel half-finished. This implementation
+ * wires them up with a tidy, restrained layout that matches the rest of the
+ * admin UI.
  */
 import { ChevronRight } from 'lucide-vue-next'
-
-interface Crumb {
-  label: string
-  to?: string
-}
 
 defineProps<{
   title: string
   subtitle?: string
-  breadcrumbs?: Crumb[]
+  breadcrumbs?: { label: string; to?: string }[]
 }>()
 </script>
 
 <template>
-  <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+  <header class="mb-6 flex flex-col gap-3 border-b border-slate-200/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
     <div class="min-w-0">
-      <nav v-if="breadcrumbs?.length" class="mb-2 flex items-center gap-1 text-xs text-slate-500">
+      <!-- Breadcrumbs -->
+      <nav
+        v-if="breadcrumbs && breadcrumbs.length"
+        class="mb-2 flex items-center gap-1 text-xs text-slate-500"
+        aria-label="Breadcrumb"
+      >
         <template v-for="(crumb, i) in breadcrumbs" :key="i">
           <NuxtLink
-            v-if="crumb.to"
+            v-if="crumb.to && i < breadcrumbs.length - 1"
             :to="crumb.to"
-            class="transition-colors hover:text-slate-900"
+            class="rounded px-1 py-0.5 font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
           >
             {{ crumb.label }}
           </NuxtLink>
-          <span v-else class="text-slate-700">{{ crumb.label }}</span>
-          <ChevronRight v-if="i < breadcrumbs.length - 1" class="h-3.5 w-3.5 text-slate-300" />
+          <span
+            v-else
+            class="px-1 py-0.5"
+            :class="i === breadcrumbs.length - 1 ? 'font-semibold text-slate-700' : 'text-slate-500'"
+          >
+            {{ crumb.label }}
+          </span>
+          <ChevronRight
+            v-if="i < breadcrumbs.length - 1"
+            class="h-3 w-3 shrink-0 text-slate-300"
+          />
         </template>
       </nav>
 
-      <h1 class="truncate text-2xl font-semibold text-slate-900">{{ title }}</h1>
-      <p v-if="subtitle" class="mt-1 text-sm text-slate-500">{{ subtitle }}</p>
+      <!-- Title -->
+      <h1 class="truncate text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">
+        {{ title }}
+      </h1>
+
+      <!-- Subtitle -->
+      <p v-if="subtitle" class="mt-1.5 max-w-2xl text-sm text-slate-500">
+        {{ subtitle }}
+      </p>
     </div>
-    <div v-if="$slots.actions" class="flex shrink-0 items-center gap-2">
+
+    <div v-if="$slots.actions" class="flex shrink-0 items-center justify-end gap-2">
       <slot name="actions" />
     </div>
   </header>

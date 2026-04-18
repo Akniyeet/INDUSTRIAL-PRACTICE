@@ -28,19 +28,19 @@ const toneClasses = {
 
 <template>
   <div
-    class="pointer-events-none fixed inset-x-0 top-4 z-[100] flex flex-col items-center gap-2 px-4 sm:top-6"
+    class="pointer-events-none fixed right-4 top-[4.5rem] z-[100] flex flex-col items-end gap-2 sm:right-6"
     aria-live="polite"
     aria-atomic="true"
   >
     <TransitionGroup
-      enter-active-class="transition duration-200 ease-out-expo"
-      enter-from-class="opacity-0 -translate-y-2 scale-95"
-      enter-to-class="opacity-100 translate-y-0 scale-100"
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 translate-x-4 scale-95"
+      enter-to-class="opacity-100 translate-x-0 scale-100"
       leave-active-class="transition duration-150 ease-in"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 -translate-y-2"
+      leave-from-class="opacity-100 translate-x-0"
+      leave-to-class="opacity-0 translate-x-4"
       tag="div"
-      class="flex w-full max-w-md flex-col gap-2"
+      class="flex w-80 flex-col gap-2"
     >
       <div
         v-for="t in items"

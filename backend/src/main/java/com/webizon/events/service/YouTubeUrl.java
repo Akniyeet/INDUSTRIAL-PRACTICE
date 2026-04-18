@@ -3,7 +3,6 @@ package com.webizon.events.service;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -165,14 +164,4 @@ public final class YouTubeUrl {
         return "YouTubeUrl[" + videoId + "]";
     }
 
-    /** For tests / debug: the map of recognized hosts → example format. */
-    public static Map<String, String> supportedFormats() {
-        return Map.of(
-                "youtube.com", "https://www.youtube.com/watch?v=VIDEOID",
-                "youtu.be", "https://youtu.be/VIDEOID",
-                "youtube.com/live", "https://www.youtube.com/live/VIDEOID",
-                "youtube.com/embed", "https://www.youtube.com/embed/VIDEOID",
-                "youtube.com/shorts", "https://www.youtube.com/shorts/VIDEOID"
-        );
-    }
 }

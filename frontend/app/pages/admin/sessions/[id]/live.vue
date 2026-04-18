@@ -32,7 +32,6 @@ import type {
   UUID,
 } from '#shared/api/types'
 import {
-  Radio,
   Square,
   Users,
   AlertTriangle,
@@ -205,7 +204,7 @@ async function onDeleteMessage(messageId: UUID) {
     // Optimistically hide from the local list — the real hide also lands
     // via Centrifugo but the moderator wants instant feedback.
     messages.value = messages.value.filter((m) => m.id !== messageId)
-    toast.success('Хабарлама жойылды')
+    toast.success('Сообщение удалено')
   } catch {
     // global error handler toasts
   }
@@ -219,7 +218,7 @@ async function onMuteUser(userId: UUID, displayName: string | null) {
       reason: 'Slow down',
     })
     prependLog(action)
-    toast.success(`${displayName ?? 'Қолданушы'} 5 минутқа үнсіз қойылды`)
+    toast.success(`${displayName ?? 'Пользователь'} заглушен на 5 минут`)
   } catch {
     // global handler
   }
@@ -232,7 +231,7 @@ async function onChatBanUser(userId: UUID, displayName: string | null) {
       reason: 'Chat abuse',
     })
     prependLog(action)
-    toast.success(`${displayName ?? 'Қолданушы'} чаттан банға түсті`)
+    toast.success(`${displayName ?? 'Пользователь'} забанен в чате`)
   } catch {
     // global handler
   }
@@ -252,13 +251,13 @@ async function onCtaToggle(cta: CtaResponse, show: boolean) {
       const ids = new Set(activeCtaIds.value)
       ids.add(cta.id)
       activeCtaIds.value = ids
-      toast.success(`"${cta.title}" көрсетілді`)
+      toast.success(`"${cta.title}" показан`)
     } else {
       await api.cta.hide(sessionId.value, cta.id)
       const ids = new Set(activeCtaIds.value)
       ids.delete(cta.id)
       activeCtaIds.value = ids
-      toast.success(`"${cta.title}" жасырылды`)
+      toast.success(`"${cta.title}" скрыт`)
     }
   } catch {
     // global toast
@@ -287,7 +286,7 @@ async function endLive() {
       ? await api.sessions.endAuto(sessionId.value)
       : await api.sessions.endLive(sessionId.value)
     sessionStatus.value = updated.status
-    toast.success('Эфир аяқталды')
+    toast.success('Эфир завершён')
     endLiveModalOpen.value = false
   } finally {
     endingLive.value = false
@@ -311,15 +310,15 @@ const canModerate = computed(() => bootstrap.value?.capabilities.canModerate ?? 
       <div class="flex items-start gap-3">
         <AlertTriangle class="mt-0.5 h-5 w-5 text-danger-500" />
         <div class="flex-1">
-          <h3 class="text-sm font-semibold text-danger-800">Эфир жүктелмеді</h3>
+          <h3 class="text-sm font-semibold text-danger-800">Эфир не загружен</h3>
           <p class="mt-1 text-sm text-danger-700">
-            Сессия табылмады немесе сізде оған кіру құқығы жоқ.
+            Сессия не найдена или у вас нет прав доступа.
           </p>
         </div>
       </div>
       <template #footer>
-        <UiButton variant="outline" size="sm" @click="router.back()">Артқа</UiButton>
-        <UiButton variant="primary" size="sm" @click="refreshBootstrap()">Қайта көру</UiButton>
+        <UiButton variant="outline" size="sm" @click="router.back()">Назад</UiButton>
+        <UiButton variant="primary" size="sm" @click="refreshBootstrap()">Повторить</UiButton>
       </template>
     </UiCard>
 
@@ -328,10 +327,10 @@ const canModerate = computed(() => bootstrap.value?.capabilities.canModerate ?? 
       <div class="flex items-start gap-3">
         <AlertTriangle class="mt-0.5 h-5 w-5 text-warning-500" />
         <div class="flex-1">
-          <h3 class="text-sm font-semibold text-warning-800">Кіру құқығы жетпейді</h3>
+          <h3 class="text-sm font-semibold text-warning-800">Недостаточно прав</h3>
           <p class="mt-1 text-sm text-warning-700">
-            Тірі эфирді басқару үшін модератор/пресентер рөлі қажет. Өтінеміз,
-            тенант әкімшісімен байланысыңыз.
+            Для управления эфиром необходима роль модератора или презентера.
+            Обратитесь к администратору тенанта.
           </p>
         </div>
       </div>
@@ -343,10 +342,10 @@ const canModerate = computed(() => bootstrap.value?.capabilities.canModerate ?? 
         :title="bootstrap.event.title"
         :subtitle="`Сессия · ${new Date(bootstrap.session.startTime).toLocaleString('ru-RU')}`"
         :breadcrumbs="[
-          { label: 'Басты бет', to: '/admin' },
-          { label: 'Ивенттер', to: '/admin/events' },
-          { label: bootstrap.event.title, to: `/admin/events/${bootstrap.event.id}` },
-          { label: 'Эфирді басқару' },
+          { label: 'Главная', to: '/admin' },
+          { label: 'Мероприятия', to: '/admin/events' },
+          { label: bootstrap.event.title, to: '/admin/events' },
+          { label: 'Управление эфиром' },
         ]"
       >
         <template #actions>
@@ -356,7 +355,7 @@ const canModerate = computed(() => bootstrap.value?.capabilities.canModerate ?? 
             @click="refreshBootstrap()"
           >
             <RefreshCw class="h-4 w-4" />
-            Жаңарту
+            Обновить
           </UiButton>
           <UiButton
             v-if="isLive"
@@ -366,7 +365,7 @@ const canModerate = computed(() => bootstrap.value?.capabilities.canModerate ?? 
             @click="endLiveModalOpen = true"
           >
             <Square class="h-4 w-4" />
-            Эфирді аяқтау
+            Завершить эфир
           </UiButton>
           <UiButton
             variant="outline"
@@ -388,14 +387,14 @@ const canModerate = computed(() => bootstrap.value?.capabilities.canModerate ?? 
           class="inline-flex items-center gap-1.5 text-xs font-medium text-danger-700"
         >
           <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-600" />
-          Эфирде
+          В эфире
         </span>
         <SessionStatusBadge v-else :status="sessionStatus ?? bootstrap.session.status" />
         <span class="text-slate-300">·</span>
         <span class="inline-flex items-center gap-1.5 text-slate-600">
           <Users class="h-4 w-4" />
           <span class="font-semibold text-slate-900">{{ presentNow }}</span>
-          көрермен
+          зрителей
         </span>
         <span class="text-slate-300">·</span>
         <span class="text-slate-500">
@@ -442,19 +441,19 @@ const canModerate = computed(() => bootstrap.value?.capabilities.canModerate ?? 
     </template>
 
     <!-- End-live confirm -->
-    <UiModal v-model="endLiveModalOpen" title="Эфирді аяқтау">
+    <UiModal v-model="endLiveModalOpen" title="Завершить эфир">
       <p class="text-sm text-slate-600">
-        Эфирді аяқтағаннан кейін көрермендер үшін бөлме жабылады және финалдау
-        процесі басталады (аналитика, чат архиві, таймлайн дайындығы). Бұл
-        әрекетті кері қайтару мүмкін емес.
+        После завершения эфира комната закроется для зрителей и начнётся
+        процесс финализации (аналитика, архив чата, подготовка таймлайна).
+        Это действие нельзя отменить.
       </p>
       <template #footer>
         <UiButton variant="outline" :disabled="endingLive" @click="endLiveModalOpen = false">
-          Бас тарту
+          Отмена
         </UiButton>
         <UiButton variant="danger" :loading="endingLive" @click="endLive">
           <Square class="h-4 w-4" />
-          Аяқтау
+          Завершить
         </UiButton>
       </template>
     </UiModal>

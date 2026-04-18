@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -123,6 +124,15 @@ public class GlobalExceptionHandler {
         log.error("Security exception (possible cross-tenant write attempt): {}", ex.getMessage());
         return baseProblem(HttpStatus.FORBIDDEN, "forbidden", "Forbidden",
                 "Operation denied.");
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ProblemDetail onResponseStatus(ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        if (status == null) status = HttpStatus.INTERNAL_SERVER_ERROR;
+        String slug = status.is4xxClientError() ? "client-error" : "internal";
+        return baseProblem(status, slug, status.getReasonPhrase(),
+                ex.getReason() != null ? ex.getReason() : status.getReasonPhrase());
     }
 
     // ------------------------------------------------------------------

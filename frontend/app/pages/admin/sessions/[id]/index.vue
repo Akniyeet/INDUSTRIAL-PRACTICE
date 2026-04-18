@@ -20,7 +20,6 @@ import {
   ExternalLink,
   RefreshCw,
   AlertTriangle,
-  Calendar,
   Download,
   ArrowLeft,
 } from 'lucide-vue-next'
@@ -87,23 +86,23 @@ async function doAction(action: string) {
     switch (action) {
       case 'start-live':
         updated = await api.sessions.startLive(session.value.id)
-        toast.success('Эфир басталды')
+        toast.success('Эфир начался')
         break
       case 'end-live':
         updated = await api.sessions.endLive(session.value.id)
-        toast.success('Эфир аяқталды')
+        toast.success('Эфир завершён')
         break
       case 'start-auto':
         updated = await api.sessions.startAuto(session.value.id)
-        toast.success('Авто сессия басталды')
+        toast.success('Авто-сессия началась')
         break
       case 'end-auto':
         updated = await api.sessions.endAuto(session.value.id)
-        toast.success('Авто сессия аяқталды')
+        toast.success('Авто-сессия завершена')
         break
       case 'cancel':
         updated = await api.sessions.cancel(session.value.id)
-        toast.success('Сессия бас тартылды')
+        toast.success('Сессия отменена')
         break
       default:
         return
@@ -111,7 +110,7 @@ async function doAction(action: string) {
     session.value = updated
     confirmModal.value = null
   } catch {
-    toast.error('Әрекет орындалмады')
+    toast.error('Действие не выполнено')
   } finally {
     actionLoading.value = false
   }
@@ -146,7 +145,7 @@ function formatDuration(seconds: number) {
   if (m < 60) return `${m} мин`
   const h = Math.floor(m / 60)
   const rem = m % 60
-  return rem === 0 ? `${h} сағ` : `${h} сағ ${rem} мин`
+  return rem === 0 ? `${h} ч` : `${h} ч ${rem} мин`
 }
 
 function downloadExport() {
@@ -157,13 +156,13 @@ function downloadExport() {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  SCHEDULED: 'Жоспарланған',
-  LIVE: 'Эфирде',
-  ENDED: 'Аяқталған',
-  CANCELLED: 'Бас тартылған',
-  AUTO_SCHEDULED: 'Авто жоспарланған',
-  AUTO_LIVE: 'Авто эфирде',
-  AUTO_ENDED: 'Авто аяқталған',
+  SCHEDULED: 'Запланирована',
+  LIVE: 'В эфире',
+  ENDED: 'Завершена',
+  CANCELLED: 'Отменена',
+  AUTO_SCHEDULED: 'Авто запланирована',
+  AUTO_LIVE: 'Авто в эфире',
+  AUTO_ENDED: 'Авто завершена',
 }
 </script>
 
@@ -180,14 +179,14 @@ const STATUS_LABELS: Record<string, string> = {
       <div class="flex items-start gap-3">
         <AlertTriangle class="mt-0.5 h-5 w-5 text-danger-500" />
         <div>
-          <h3 class="text-sm font-semibold text-danger-800">Сессия табылмады</h3>
+          <h3 class="text-sm font-semibold text-danger-800">Сессия не найдена</h3>
           <p class="mt-1 text-sm text-danger-700">
-            Бұл сессия жойылған немесе сізде оған қолжетім жоқ.
+            Эта сессия удалена или у вас нет к ней доступа.
           </p>
         </div>
       </div>
       <template #footer>
-        <UiButton variant="outline" size="sm" to="/admin/sessions">Тізімге қайту</UiButton>
+        <UiButton variant="outline" size="sm" to="/admin/sessions">Вернуться к списку</UiButton>
       </template>
     </UiCard>
 
@@ -197,8 +196,8 @@ const STATUS_LABELS: Record<string, string> = {
         :title="event?.title ?? 'Сессия'"
         :subtitle="`${session.type} · ${STATUS_LABELS[session.status] || session.status}`"
         :breadcrumbs="[
-          { label: 'Басты бет', to: '/admin' },
-          { label: 'Сессиялар', to: '/admin/sessions' },
+          { label: 'Главная', to: '/admin' },
+          { label: 'Сессии', to: '/admin/sessions' },
           { label: event?.title ?? 'Сессия' },
         ]"
       >
@@ -206,8 +205,8 @@ const STATUS_LABELS: Record<string, string> = {
           <UiButton variant="ghost" size="md" :disabled="loading" @click="refresh">
             <RefreshCw class="h-4 w-4" :class="loading && 'animate-spin'" />
           </UiButton>
-          <UiButton v-if="event" variant="outline" size="md" :to="`/admin/events/${event.id}?tab=sessions`">
-            <ArrowLeft class="h-4 w-4" /> Ивентке
+          <UiButton variant="outline" size="md" to="/admin/sessions">
+            <ArrowLeft class="h-4 w-4" /> К сессиям
           </UiButton>
         </template>
       </PageHeader>
@@ -230,7 +229,7 @@ const STATUS_LABELS: Record<string, string> = {
             size="sm"
             @click="confirmModal = 'start-live'"
           >
-            <Play class="h-3.5 w-3.5" /> Эфир бастау
+            <Play class="h-3.5 w-3.5" /> Начать эфир
           </UiButton>
 
           <!-- End Live -->
@@ -240,7 +239,7 @@ const STATUS_LABELS: Record<string, string> = {
             size="sm"
             @click="confirmModal = 'end-live'"
           >
-            <Square class="h-3.5 w-3.5" /> Эфир тоқтату
+            <Square class="h-3.5 w-3.5" /> Завершить эфир
           </UiButton>
 
           <!-- Start Auto -->
@@ -250,7 +249,7 @@ const STATUS_LABELS: Record<string, string> = {
             size="sm"
             @click="confirmModal = 'start-auto'"
           >
-            <Play class="h-3.5 w-3.5" /> Авто бастау
+            <Play class="h-3.5 w-3.5" /> Начать авто
           </UiButton>
 
           <!-- End Auto -->
@@ -260,7 +259,7 @@ const STATUS_LABELS: Record<string, string> = {
             size="sm"
             @click="confirmModal = 'end-auto'"
           >
-            <Square class="h-3.5 w-3.5" /> Авто тоқтату
+            <Square class="h-3.5 w-3.5" /> Завершить авто
           </UiButton>
 
           <!-- Cancel -->
@@ -270,51 +269,51 @@ const STATUS_LABELS: Record<string, string> = {
             size="sm"
             @click="confirmModal = 'cancel'"
           >
-            <XCircle class="h-3.5 w-3.5" /> Бас тарту
+            <XCircle class="h-3.5 w-3.5" /> Отменить
           </UiButton>
         </div>
       </div>
 
       <!-- Info grid -->
       <div class="grid gap-5 lg:grid-cols-2">
-        <UiCard title="Сессия деректері">
+        <UiCard title="Данные сессии">
           <dl class="space-y-3 text-sm">
             <div class="flex items-center justify-between">
-              <dt class="text-slate-500">Басталу уақыты</dt>
+              <dt class="text-slate-500">Время начала</dt>
               <dd class="font-medium text-slate-900">
                 {{ formatDateTime(session.startTime) }}
                 <span v-if="isScheduled" class="ml-1 text-xs text-slate-400">{{ formatRelative(session.startTime) }}</span>
               </dd>
             </div>
             <div class="flex items-center justify-between">
-              <dt class="text-slate-500">Ұзақтығы</dt>
+              <dt class="text-slate-500">Длительность</dt>
               <dd class="font-medium text-slate-900">{{ formatDuration(session.plannedDurationSeconds) }}</dd>
             </div>
             <div v-if="session.actualStartedAt" class="flex items-center justify-between">
-              <dt class="text-slate-500">Нақты басталды</dt>
+              <dt class="text-slate-500">Фактическое начало</dt>
               <dd class="font-medium text-slate-900">{{ formatDateTime(session.actualStartedAt) }}</dd>
             </div>
             <div v-if="session.actualEndedAt" class="flex items-center justify-between">
-              <dt class="text-slate-500">Нақты аяқталды</dt>
+              <dt class="text-slate-500">Фактическое окончание</dt>
               <dd class="font-medium text-slate-900">{{ formatDateTime(session.actualEndedAt) }}</dd>
             </div>
             <div v-if="session.sourceLiveSessionId" class="flex items-center justify-between">
-              <dt class="text-slate-500">Бастапқы LIVE сессия</dt>
+              <dt class="text-slate-500">Исходная LIVE-сессия</dt>
               <dd>
                 <NuxtLink
                   :to="`/admin/sessions/${session.sourceLiveSessionId}`"
                   class="text-sm font-medium text-brand-700 hover:text-brand-800"
                 >
-                  Көру
+                  Посмотреть
                 </NuxtLink>
               </dd>
             </div>
             <div class="flex items-center justify-between">
-              <dt class="text-slate-500">Жасалған</dt>
+              <dt class="text-slate-500">Создана</dt>
               <dd class="text-slate-700">{{ formatDateTime(session.createdAt) }}</dd>
             </div>
             <div class="flex items-center justify-between">
-              <dt class="text-slate-500">Жаңартылған</dt>
+              <dt class="text-slate-500">Обновлена</dt>
               <dd class="text-slate-700">{{ formatDateTime(session.updatedAt) }}</dd>
             </div>
           </dl>
@@ -342,13 +341,13 @@ const STATUS_LABELS: Record<string, string> = {
               />
             </div>
           </div>
-          <p v-else class="text-sm italic text-slate-400">YouTube URL көрсетілмеген.</p>
+          <p v-else class="text-sm italic text-slate-400">YouTube URL не указан.</p>
         </UiCard>
       </div>
 
       <!-- Navigation to sub-pages -->
       <div class="mt-5">
-        <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Құралдар</h2>
+        <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Инструменты</h2>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <NuxtLink
             v-if="isLive"
@@ -359,7 +358,7 @@ const STATUS_LABELS: Record<string, string> = {
               <Radio class="h-4 w-4" />
             </div>
             <div>
-              <p class="text-sm font-semibold text-slate-900">Эфир басқару</p>
+              <p class="text-sm font-semibold text-slate-900">Управление эфиром</p>
               <p class="text-xs text-slate-500">Чат, модерация, CTA</p>
             </div>
           </NuxtLink>
@@ -388,7 +387,7 @@ const STATUS_LABELS: Record<string, string> = {
             </div>
             <div>
               <p class="text-sm font-semibold text-slate-900">Таймлайн</p>
-              <p class="text-xs text-slate-500">Әрекеттер жоспары</p>
+              <p class="text-xs text-slate-500">План действий</p>
             </div>
           </NuxtLink>
 
@@ -401,8 +400,8 @@ const STATUS_LABELS: Record<string, string> = {
               <MessageSquareText class="h-4 w-4" />
             </div>
             <div>
-              <p class="text-sm font-semibold text-slate-900">Чат тарихы</p>
-              <p class="text-xs text-slate-500">Replay фильтрі</p>
+              <p class="text-sm font-semibold text-slate-900">История чата</p>
+              <p class="text-xs text-slate-500">Фильтр воспроизведения</p>
             </div>
           </NuxtLink>
 
@@ -417,7 +416,7 @@ const STATUS_LABELS: Record<string, string> = {
             </div>
             <div>
               <p class="text-sm font-semibold text-slate-900">Excel экспорт</p>
-              <p class="text-xs text-slate-500">Толық есеп</p>
+              <p class="text-xs text-slate-500">Полный отчёт</p>
             </div>
           </button>
         </div>
@@ -429,33 +428,33 @@ const STATUS_LABELS: Record<string, string> = {
       v-if="confirmModal"
       :model-value="true"
       :title="{
-        'start-live': 'Эфирді бастау',
-        'end-live': 'Эфирді аяқтау',
-        'start-auto': 'Авто сессияны бастау',
-        'end-auto': 'Авто сессияны аяқтау',
-        'cancel': 'Сессияны бас тарту',
+        'start-live': 'Начать эфир',
+        'end-live': 'Завершить эфир',
+        'start-auto': 'Начать авто-сессию',
+        'end-auto': 'Завершить авто-сессию',
+        'cancel': 'Отменить сессию',
       }[confirmModal]"
       @update:model-value="confirmModal = null"
     >
       <p class="text-sm text-slate-600">
         {{ {
-          'start-live': 'Эфир басталады, бөлме қатысушыларға ашылады.',
-          'end-live': 'Эфир аяқталады, бөлме жабылады. Бұл әрекетті қайтару мүмкін емес.',
-          'start-auto': 'Авто сессия басталады, видео ойнатылады.',
-          'end-auto': 'Авто сессия аяқталады.',
-          'cancel': 'Сессия бас тартылады. Бұл әрекетті қайтару мүмкін емес.',
+          'start-live': 'Эфир начнётся, комната откроется для участников.',
+          'end-live': 'Эфир завершится, комната закроется. Это действие нельзя отменить.',
+          'start-auto': 'Авто-сессия начнётся, видео будет воспроизведено.',
+          'end-auto': 'Авто-сессия завершится.',
+          'cancel': 'Сессия будет отменена. Это действие нельзя отменить.',
         }[confirmModal] }}
       </p>
       <template #footer>
         <UiButton variant="outline" :disabled="actionLoading" @click="confirmModal = null">
-          Жоқ
+          Нет
         </UiButton>
         <UiButton
           :variant="confirmModal === 'cancel' || confirmModal.startsWith('end') ? 'danger' : 'primary'"
           :loading="actionLoading"
           @click="doAction(confirmModal!)"
         >
-          Иә, жалғастыру
+          Да, продолжить
         </UiButton>
       </template>
     </UiModal>

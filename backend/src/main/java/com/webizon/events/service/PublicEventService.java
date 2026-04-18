@@ -79,20 +79,26 @@ public class PublicEventService {
         UUID previous = TenantContext.copy();
         try {
             TenantContext.set(tenant.getId());
-            entityManager.createNativeQuery("SET LOCAL app.current_tenant = :tid")
-                    .setParameter("tid", tenant.getId().toString())
+            // PostgreSQL does not accept bind parameters in SET LOCAL — use string formatting
+            // (safe: tenant.getId() is a validated UUID)
+            entityManager.createNativeQuery(
+                    "SET LOCAL app.current_tenant = '" + tenant.getId() + "'")
                     .executeUpdate();
 
             return resolveInsideTenant(eventSlug.trim().toLowerCase());
         } finally {
-            if (previous != null) {
-                TenantContext.set(previous);
-                entityManager.createNativeQuery("SET LOCAL app.current_tenant = :tid")
-                        .setParameter("tid", previous.toString())
-                        .executeUpdate();
-            } else {
-                TenantContext.clear();
-                entityManager.createNativeQuery("RESET app.current_tenant").executeUpdate();
+            try {
+                if (previous != null) {
+                    TenantContext.set(previous);
+                    entityManager.createNativeQuery(
+                            "SET LOCAL app.current_tenant = '" + previous + "'")
+                            .executeUpdate();
+                } else {
+                    TenantContext.clear();
+                    entityManager.createNativeQuery("RESET app.current_tenant").executeUpdate();
+                }
+            } catch (Exception ignored) {
+                // best-effort cleanup — transaction may already be aborted
             }
         }
     }
@@ -122,11 +128,10 @@ public class PublicEventService {
 
         // 2. Nearest upcoming session — waiting room if close enough.
         List<Session> upcoming = sessionRepository.findUpcomingByEventId(event.getId(), now);
-        if (!upcoming.isEmpty()) {
-            Session next = upcoming.get(0);
-            if (next.getStartTime().isBefore(now.plus(WAITING_WINDOW))) {
-                return PublicEventResolution.waiting(eventView, PublicSessionView.from(next));
-            }
+        Session nextLiveOrAny = upcoming.isEmpty() ? null : upcoming.get(0);
+        if (nextLiveOrAny != null
+                && nextLiveOrAny.getStartTime().isBefore(now.plus(WAITING_WINDOW))) {
+            return PublicEventResolution.waiting(eventView, PublicSessionView.from(nextLiveOrAny));
         }
 
         // 3. Slot selector — multiple future AUTO replays, no LIVE imminent.
@@ -145,7 +150,19 @@ public class PublicEventService {
             }
         }
 
-        // 4. Nothing imminent — show the informational landing page.
+        // 4. Nothing imminent, but a future session exists — show the
+        // landing with a countdown card so the visitor still sees when
+        // the broadcast starts. EDUSER-style: cover + title + timer.
+        if (nextLiveOrAny != null) {
+            return PublicEventResolution.landingWithNext(
+                    eventView, PublicSessionView.from(nextLiveOrAny));
+        }
+        if (!autoSlots.isEmpty()) {
+            return PublicEventResolution.landingWithNext(
+                    eventView, PublicSessionView.from(autoSlots.get(0)));
+        }
+
+        // 5. No session at all — purely informational landing.
         return PublicEventResolution.landing(eventView);
     }
 

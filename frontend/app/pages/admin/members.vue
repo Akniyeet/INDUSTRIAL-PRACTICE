@@ -41,7 +41,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-useHead({ title: 'Мүшелер — Webizon' })
+useHead({ title: 'Участники — Webizon' })
 
 const api = useApi()
 const toast = useToastStore()
@@ -58,7 +58,7 @@ async function loadMembers() {
   try {
     members.value = await api.auth.myMemberships()
   } catch {
-    toast.error('Мүшелерді жүктеу қатесі')
+    toast.error('Ошибка загрузки участников')
   } finally {
     membersLoading.value = false
   }
@@ -82,7 +82,7 @@ async function loadInvites() {
     const page = await api.invites.list(params)
     invites.value = page.content
   } catch {
-    toast.error('Шақыруларды жүктеу қатесі')
+    toast.error('Ошибка загрузки приглашений')
   } finally {
     invitesLoading.value = false
   }
@@ -123,11 +123,11 @@ async function submitInvite() {
       message: inviteForm.value.message || undefined,
     })
     createdAcceptUrl.value = result.acceptUrl
-    toast.success(`Шақыру жіберілді: ${inviteForm.value.email}`)
+    toast.success(`Приглашение отправлено: ${inviteForm.value.email}`)
     loadInvites()
   } catch (err) {
     const apiErr = err as { detail?: string; title?: string }
-    toast.error(apiErr.detail ?? 'Шақыру жіберу қатесі')
+    toast.error(apiErr.detail ?? 'Ошибка отправки приглашения')
   } finally {
     creating.value = false
   }
@@ -137,9 +137,9 @@ async function copyUrl() {
   if (!createdAcceptUrl.value) return
   try {
     await navigator.clipboard.writeText(createdAcceptUrl.value)
-    toast.success('Сілтеме көшірілді')
+    toast.success('Ссылка скопирована')
   } catch {
-    toast.error('Көшіру мүмкін болмады')
+    toast.error('Не удалось скопировать')
   }
 }
 
@@ -161,12 +161,12 @@ async function confirmRevoke() {
   revoking.value = true
   try {
     await api.invites.revoke(pendingRevoke.value.id)
-    toast.success('Шақыру бас тартылды')
+    toast.success('Приглашение отозвано')
     revokeModalOpen.value = false
     pendingRevoke.value = null
     loadInvites()
   } catch {
-    toast.error('Бас тарту қатесі')
+    toast.error('Ошибка отзыва')
   } finally {
     revoking.value = false
   }
@@ -177,7 +177,7 @@ async function confirmRevoke() {
 // ---------------------------------------------------------------------------
 
 const ROLE_LABELS: Record<MembershipRole, string> = {
-  TENANT_OWNER: 'Иесі',
+  TENANT_OWNER: 'Владелец',
   TENANT_ADMIN: 'Админ',
   TENANT_MODERATOR: 'Модератор',
   TENANT_PRESENTER: 'Спикер',
@@ -208,10 +208,10 @@ const ASSIGNABLE_ROLES: MembershipRole[] = [
 ]
 
 const INVITE_STATUS_LABELS: Record<InviteStatus, string> = {
-  PENDING: 'Күтілуде',
-  ACCEPTED: 'Қабылданды',
-  REVOKED: 'Бас тартылды',
-  EXPIRED: 'Мерзімі өтті',
+  PENDING: 'Ожидает',
+  ACCEPTED: 'Принято',
+  REVOKED: 'Отозвано',
+  EXPIRED: 'Истекло',
 }
 
 const INVITE_STATUS_COLORS: Record<InviteStatus, string> = {
@@ -244,21 +244,21 @@ function formatRelative(iso: string) {
 <template>
   <div>
     <PageHeader
-      title="Мүшелер"
-      subtitle="Команда мүшелерін басқару және жаңа мүшелерді шақыру"
+      title="Участники"
+      subtitle="Управление участниками команды и отправка приглашений"
       :breadcrumbs="[
-        { label: 'Басты бет', to: '/admin' },
-        { label: 'Мүшелер' },
+        { label: 'Главная', to: '/admin' },
+        { label: 'Участники' },
       ]"
     >
       <template #actions>
         <UiButton variant="outline" size="md" :disabled="membersLoading || invitesLoading" @click="refreshAll">
           <RefreshCw class="h-4 w-4" :class="(membersLoading || invitesLoading) && 'animate-spin'" />
-          Жаңарту
+          Обновить
         </UiButton>
         <UiButton variant="primary" size="md" @click="openInvite">
           <UserPlus class="h-4 w-4" />
-          Шақыру жіберу
+          Пригласить
         </UiButton>
       </template>
     </PageHeader>
@@ -267,7 +267,7 @@ function formatRelative(iso: string) {
     <section class="mt-6">
       <div class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
         <Users class="h-4 w-4" />
-        Белсенді мүшелер ({{ members.length }})
+        Активные участники ({{ members.length }})
       </div>
 
       <div v-if="membersLoading && members.length === 0" class="space-y-2">
@@ -276,8 +276,8 @@ function formatRelative(iso: string) {
 
       <UiEmpty
         v-else-if="members.length === 0"
-        title="Мүшелер жоқ"
-        description="Командаңызға мүшелер шақырыңыз."
+        title="Нет участников"
+        description="Пригласите участников в вашу команду."
       >
         <template #icon><Users class="h-5 w-5" /></template>
       </UiEmpty>
@@ -321,15 +321,15 @@ function formatRelative(iso: string) {
       <div class="mb-3 flex items-center justify-between">
         <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <Mail class="h-4 w-4" />
-          Шақырулар
+          Приглашения
         </div>
         <!-- Filter -->
         <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5">
           <button
             v-for="opt in [
-              { value: '', label: 'Барлығы' },
-              { value: 'PENDING', label: 'Күтілуде' },
-              { value: 'ACCEPTED', label: 'Қабылданды' },
+              { value: '', label: 'Все' },
+              { value: 'PENDING', label: 'Ожидает' },
+              { value: 'ACCEPTED', label: 'Принято' },
             ] as const"
             :key="opt.value"
             class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
@@ -349,8 +349,8 @@ function formatRelative(iso: string) {
 
       <UiEmpty
         v-else-if="invites.length === 0"
-        title="Шақырулар жоқ"
-        description="Жаңа мүшені шақыру үшін 'Шақыру жіберу' батырмасын басыңыз."
+        title="Нет приглашений"
+        description="Нажмите кнопку «Пригласить», чтобы отправить приглашение новому участнику."
       >
         <template #icon><Mail class="h-5 w-5" /></template>
       </UiEmpty>
@@ -380,7 +380,7 @@ function formatRelative(iso: string) {
                   </span>
                   <span>{{ formatDate(inv.createdAt) }}</span>
                   <span v-if="inv.status === 'PENDING'" class="text-warning-600">
-                    Мерзімі: {{ formatDate(inv.expiresAt) }}
+                    Истекает: {{ formatDate(inv.expiresAt) }}
                   </span>
                 </div>
               </div>
@@ -399,7 +399,7 @@ function formatRelative(iso: string) {
                 @click="askRevoke(inv)"
               >
                 <XCircle class="h-3.5 w-3.5" />
-                Бас тарту
+                Отозвать
               </UiButton>
             </div>
           </li>
@@ -408,16 +408,16 @@ function formatRelative(iso: string) {
     </section>
 
     <!-- ──── Invite Modal ──────────────────────────────────────────── -->
-    <UiModal v-model="inviteModalOpen" :title="createdAcceptUrl ? 'Шақыру жіберілді' : 'Жаңа шақыру'" size="md">
+    <UiModal v-model="inviteModalOpen" :title="createdAcceptUrl ? 'Приглашение отправлено' : 'Новое приглашение'" size="md">
       <!-- Success state: show accept URL -->
       <template v-if="createdAcceptUrl">
         <div class="space-y-4">
           <div class="rounded-lg border border-success-200 bg-success-50 p-4">
             <p class="text-sm font-medium text-success-800">
-              Шақыру сәтті жіберілді!
+              Приглашение успешно отправлено!
             </p>
             <p class="mt-1 text-xs text-success-700">
-              Төмендегі сілтемені шақырылатын адамға жіберіңіз. Сілтеме бір рет қана көрсетіледі.
+              Отправьте ссылку ниже приглашённому. Ссылка отображается только один раз.
             </p>
           </div>
           <div class="flex items-center gap-2">
@@ -445,7 +445,7 @@ function formatRelative(iso: string) {
             />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-700">Рөл</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-700">Роль</label>
             <UiSelect v-model="inviteForm.role">
               <option v-for="r in ASSIGNABLE_ROLES" :key="r" :value="r">
                 {{ ROLE_LABELS[r] }}
@@ -453,12 +453,12 @@ function formatRelative(iso: string) {
             </UiSelect>
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-700">Хабарлама (міндетті емес)</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-700">Сообщение (необязательно)</label>
             <textarea
               v-model="inviteForm.message"
               rows="2"
               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-              placeholder="Командаға қосылуды сұраймыз..."
+              placeholder="Приглашаем присоединиться к команде..."
             />
           </div>
         </div>
@@ -466,7 +466,7 @@ function formatRelative(iso: string) {
 
       <template #footer>
         <UiButton variant="outline" @click="inviteModalOpen = false">
-          {{ createdAcceptUrl ? 'Жабу' : 'Бас тарту' }}
+          {{ createdAcceptUrl ? 'Закрыть' : 'Отмена' }}
         </UiButton>
         <UiButton
           v-if="!createdAcceptUrl"
@@ -476,27 +476,27 @@ function formatRelative(iso: string) {
           @click="submitInvite"
         >
           <Mail class="h-4 w-4" />
-          Жіберу
+          Отправить
         </UiButton>
       </template>
     </UiModal>
 
     <!-- ──── Revoke Confirm ────────────────────────────────────────── -->
-    <UiModal v-model="revokeModalOpen" title="Шақыруды бас тарту" size="sm">
+    <UiModal v-model="revokeModalOpen" title="Отозвать приглашение" size="sm">
       <div class="flex items-start gap-3 rounded-lg border border-warning-200 bg-warning-50 p-3">
         <AlertTriangle class="mt-0.5 h-5 w-5 shrink-0 text-warning-500" />
         <p class="text-sm text-warning-800">
-          {{ pendingRevoke?.email }} адресіне жіберілген шақыру бас тартылады.
-          Бұл адам сілтеме арқылы кіре алмайды.
+          Приглашение на адрес {{ pendingRevoke?.email }} будет отозвано.
+          Этот человек не сможет войти по ссылке.
         </p>
       </div>
       <template #footer>
         <UiButton variant="outline" :disabled="revoking" @click="revokeModalOpen = false">
-          Жабу
+          Закрыть
         </UiButton>
         <UiButton variant="danger" :loading="revoking" @click="confirmRevoke">
           <XCircle class="h-4 w-4" />
-          Бас тарту
+          Отозвать
         </UiButton>
       </template>
     </UiModal>

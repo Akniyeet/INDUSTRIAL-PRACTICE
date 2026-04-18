@@ -73,6 +73,10 @@ public class UserService {
                 .timezone(stringClaimOrDefault(jwt, "zoneinfo", "Asia/Almaty"))
                 .lastLoginAt(Instant.now())
                 .build();
+        // Use the Keycloak UUID as the canonical app user ID so that
+        // CurrentUser.profileId() (= JWT sub = keycloak UUID) always resolves
+        // to a valid users.id row without an extra lookup.
+        created.setId(keycloakId);
 
         User saved = userRepository.save(created);
         log.info("Created new user id={} email={} keycloakId={}", saved.getId(), saved.getEmail(), keycloakId);

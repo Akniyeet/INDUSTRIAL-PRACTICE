@@ -4,18 +4,18 @@
  *
  * <p>Loads the full session report bundle from
  * {@code GET /api/v1/events/{eventId}/sessions/{sessionId}/report} and
- * renders three blocks:
+ * renders:
  * <ol>
- *   <li>Summary strip — top-line KPIs (attendees, long watchers, chat, CTA clicks, moderation)</li>
- *   <li>Retention chart — bar chart showing viewer drop-off at sample points</li>
- *   <li>CTA CTR table — per-CTA impressions, clicks, downloads, CTR%</li>
+ *   <li>Summary strip — top-line KPIs (6 metric cards)</li>
+ *   <li>Two-column grid — retention curve + CTA performance table</li>
+ *   <li>AI Lead Scoring panel — classification + scoring trigger</li>
  * </ol>
  *
  * <p>The session and event ids are both needed for the report endpoint.
  * We first load the session to get {@code eventId}, then fire the report.
  */
 import type { SessionReportResponse, SessionResponse } from '#shared/api/types'
-import { ArrowLeft, Download, RefreshCw, BarChart3 } from 'lucide-vue-next'
+import { ArrowLeft, Download, RefreshCw, BarChart3, Activity, Target, Users2 } from 'lucide-vue-next'
 import { format } from 'date-fns'
 import { ref } from 'vue'
 
@@ -48,7 +48,7 @@ async function loadReport() {
     report.value = await api.analytics.report(session.value.eventId, sessionId.value)
   } catch (err) {
     const apiErr = err as { detail?: string; title?: string }
-    reportError.value = apiErr.detail ?? apiErr.title ?? 'Есепті жүктеу қатесі'
+    reportError.value = apiErr.detail ?? apiErr.title ?? 'Қате кезінде есеп жүктелді'
   } finally {
     reportLoading.value = false
   }
@@ -59,7 +59,7 @@ onMounted(loadReport)
 useHead(() => ({
   title: session.value
     ? `Аналитика — ${format(new Date(session.value.startTime), 'dd.MM.yyyy HH:mm')}`
-    : 'Сессия аналитикасы',
+    : 'Аналитика сессии',
 }))
 
 function downloadExport() {
@@ -77,17 +77,17 @@ function formatDuration(seconds: number) {
   if (m < 60) return `${m} мин`
   const h = Math.floor(m / 60)
   const rem = m % 60
-  return rem === 0 ? `${h} сағ` : `${h} сағ ${rem} мин`
+  return rem === 0 ? `${h} ч` : `${h} ч ${rem} мин`
 }
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-6xl px-4 py-6 md:px-6 md:py-8">
+  <div class="mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8">
     <!-- Session load error -->
     <UiCard v-if="sessionError" class="border-danger-200">
       <div class="py-8 text-center">
         <h2 class="text-lg font-semibold text-slate-900">Сессия табылмады</h2>
-        <p class="mt-2 text-sm text-slate-500">Бұл сессия жоқ немесе сізде кіру құқығы жоқ.</p>
+        <p class="mt-2 text-sm text-slate-500">Бұл сессия жоқ немесе сізде рұқсат жоқ.</p>
         <NuxtLink to="/admin" class="btn-ghost mt-4 inline-flex">
           <ArrowLeft class="h-4 w-4" />
           Артқа
@@ -100,6 +100,11 @@ function formatDuration(seconds: number) {
       <PageHeader
         :title="`Аналитика: ${formatDateTime(session.startTime)}`"
         :subtitle="`${session.type} сессия · ${formatDuration(session.plannedDurationSeconds)} · ${session.status}`"
+        :breadcrumbs="[
+          { label: 'Басты', to: '/admin' },
+          { label: 'Сессиялар', to: '/admin/sessions' },
+          { label: 'Аналитика' },
+        ]"
       >
         <template #actions>
           <UiButton variant="outline" size="md" :loading="reportLoading" @click="loadReport">
@@ -110,9 +115,9 @@ function formatDuration(seconds: number) {
             <Download class="h-4 w-4" />
             Excel
           </UiButton>
-          <UiButton variant="ghost" size="md" :to="`/admin/events/${session.eventId}`">
+          <UiButton variant="ghost" size="md" to="/admin/sessions">
             <ArrowLeft class="h-4 w-4" />
-            Оқиғаға оралу
+            Сессияларға
           </UiButton>
         </template>
       </PageHeader>
@@ -121,40 +126,67 @@ function formatDuration(seconds: number) {
       <UiCard v-if="reportError" class="mt-5 border-danger-200 bg-danger-50/60">
         <p class="text-sm text-danger-700">{{ reportError }}</p>
         <template #footer>
-          <UiButton variant="outline" size="sm" @click="loadReport">Қайта көру</UiButton>
+          <UiButton variant="outline" size="sm" @click="loadReport">Қайталау</UiButton>
         </template>
       </UiCard>
 
-      <!-- Loading -->
-      <div v-else-if="reportLoading && !report" class="mt-5 space-y-4">
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <UiSkeleton v-for="i in 5" :key="i" h="h-[80px]" rounded="rounded-xl" />
+      <!-- Loading skeletons -->
+      <div v-else-if="reportLoading && !report" class="mt-6 space-y-6">
+        <!-- KPI skeleton -->
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          <UiSkeleton v-for="i in 6" :key="i" h="h-[96px]" rounded="rounded-2xl" />
         </div>
-        <UiSkeleton h="h-[300px]" rounded="rounded-xl" />
-        <UiSkeleton h="h-[200px]" rounded="rounded-xl" />
+        <!-- Charts skeleton -->
+        <div class="grid gap-5 lg:grid-cols-2">
+          <UiSkeleton h="h-[340px]" rounded="rounded-2xl" />
+          <UiSkeleton h="h-[340px]" rounded="rounded-2xl" />
+        </div>
+        <!-- AI panel skeleton -->
+        <UiSkeleton h="h-[200px]" rounded="rounded-2xl" />
       </div>
 
       <!-- Report content -->
-      <div v-else-if="report" class="mt-5 space-y-5">
-        <!-- Summary strip -->
-        <SummaryStrip :summary="report.summary" />
+      <div v-else-if="report" class="mt-6 space-y-6">
 
-        <!-- Two-column layout on desktop -->
-        <div class="grid gap-5 lg:grid-cols-2">
-          <!-- Retention chart -->
-          <RetentionChart :points="report.retentionCurve" />
+        <!-- Section: KPI Summary -->
+        <section>
+          <div class="mb-3 flex items-center gap-2">
+            <Activity class="h-4 w-4 text-slate-400" />
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-400">Негізгі метрикалар</h2>
+          </div>
+          <SummaryStrip :summary="report.summary" />
+        </section>
 
-          <!-- CTA CTR table -->
-          <CtaCtrTable :rows="report.ctaCtr" />
-        </div>
+        <!-- Section: Charts -->
+        <section>
+          <div class="mb-3 flex items-center gap-2">
+            <BarChart3 class="h-4 w-4 text-slate-400" />
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-400">Retention және CTA</h2>
+          </div>
+          <div class="grid gap-5 lg:grid-cols-2">
+            <RetentionChart :points="report.retentionCurve" />
+            <CtaCtrTable :rows="report.ctaCtr" />
+          </div>
+        </section>
+
+        <!-- Section: AI Lead Scoring -->
+        <section>
+          <div class="mb-3 flex items-center gap-2">
+            <Users2 class="h-4 w-4 text-slate-400" />
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-400">AI Lead Scoring</h2>
+          </div>
+          <UiCard class="bg-slate-950 border-violet-800/30">
+            <AiLeadScorePanel :session-id="sessionId" />
+          </UiCard>
+        </section>
       </div>
 
       <!-- No report yet -->
       <UiEmpty
         v-else
         title="Аналитика жоқ"
-        description="Сессия аяқталғаннан кейін деректер осы жерде көрсетіледі."
-        class="mt-5"
+        description="Деректер сессия аяқталғаннан кейін пайда болады."
+        class="mt-6"
       >
         <template #icon><BarChart3 class="h-5 w-5" /></template>
       </UiEmpty>

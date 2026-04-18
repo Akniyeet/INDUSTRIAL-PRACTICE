@@ -6,6 +6,7 @@ import com.webizon.storage.api.dto.DownloadUrlResponse;
 import com.webizon.storage.api.dto.FileAssetResponse;
 import com.webizon.storage.api.dto.UploadSlotResponse;
 import com.webizon.storage.service.StorageService;
+import com.webizon.tenancy.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -57,6 +58,7 @@ import java.util.UUID;
 public class StorageController {
 
     private final StorageService storageService;
+    private final UserService userService;
 
     // ------------------------------------------------------------------
     // Two-step upload
@@ -65,10 +67,13 @@ public class StorageController {
     @PostMapping("/uploads")
     @PreAuthorize("hasAnyRole('TENANT_OWNER','TENANT_ADMIN','TENANT_MODERATOR','TENANT_PRESENTER')")
     public UploadSlotResponse createUploadSlot(@Valid @RequestBody CreateUploadSlotRequest req) {
+        // Use keycloakId → User lookup instead of profileId JWT claim
+        // (the claim may not exist if Keycloak protocol mapper is missing)
+        var user = userService.requireByKeycloakId(CurrentUser.keycloakId());
         StorageService.UploadSlot slot = storageService.createUploadSlot(
                 req.purpose(),
                 req.contentType(),
-                CurrentUser.profileId());
+                user.getId());
         return UploadSlotResponse.from(slot);
     }
 

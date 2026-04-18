@@ -10,10 +10,7 @@ import type { EventResponse, SessionResponse, SessionStatus, UUID } from '#share
 import {
   Radio,
   History,
-  Calendar,
   RefreshCw,
-  Play,
-  Square,
   ExternalLink,
   BarChart3,
   Download,
@@ -28,7 +25,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-useHead({ title: 'Сессиялар — Webizon' })
+useHead({ title: 'Сессии — Webizon' })
 
 const api = useApi()
 const toast = useToastStore()
@@ -62,7 +59,7 @@ async function refresh() {
     )
     sessions.value = allSessions
   } catch {
-    toast.error('Сессияларды жүктеу қатесі')
+    toast.error('Ошибка загрузки сессий')
   } finally {
     loading.value = false
   }
@@ -118,7 +115,7 @@ function formatDuration(seconds: number) {
   if (m < 60) return `${m} мин`
   const h = Math.floor(m / 60)
   const rem = m % 60
-  return rem === 0 ? `${h} сағ` : `${h} сағ ${rem} мин`
+  return rem === 0 ? `${h} ч` : `${h} ч ${rem} мин`
 }
 
 function downloadExport(sessionId: UUID) {
@@ -131,17 +128,17 @@ function downloadExport(sessionId: UUID) {
 <template>
   <div>
     <PageHeader
-      title="Барлық сессиялар"
-      subtitle="Барлық ивенттер бойынша сессияларды қарау"
+      title="Все сессии"
+      subtitle="Обзор сессий по всем мероприятиям"
       :breadcrumbs="[
-        { label: 'Басты бет', to: '/admin' },
-        { label: 'Сессиялар' },
+        { label: 'Главная', to: '/admin' },
+        { label: 'Сессии' },
       ]"
     >
       <template #actions>
         <UiButton variant="outline" size="md" :disabled="loading" @click="refresh">
           <RefreshCw class="h-4 w-4" :class="loading && 'animate-spin'" />
-          Жаңарту
+          Обновить
         </UiButton>
       </template>
     </PageHeader>
@@ -154,13 +151,13 @@ function downloadExport(sessionId: UUID) {
     <!-- Empty -->
     <UiEmpty
       v-else-if="sessions.length === 0 && !loading"
-      title="Сессиялар жоқ"
-      description="Алдымен ивент жасап, оған сессия қосыңыз."
+      title="Сессий нет"
+      description="Сначала создайте мероприятие и добавьте к нему сессию."
       class="mt-5"
     >
       <template #icon><Radio class="h-5 w-5" /></template>
       <template #actions>
-        <UiButton variant="primary" to="/admin/events">Ивенттерге өту</UiButton>
+        <UiButton variant="primary" to="/admin/events">Перейти к мероприятиям</UiButton>
       </template>
     </UiEmpty>
 
@@ -169,7 +166,7 @@ function downloadExport(sessionId: UUID) {
       <section v-if="liveSessions.length > 0" class="mt-5">
         <div class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-danger-600">
           <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-danger-500" />
-          Эфирде ({{ liveSessions.length }})
+          В эфире ({{ liveSessions.length }})
         </div>
         <div class="space-y-2">
           <div
@@ -190,7 +187,7 @@ function downloadExport(sessionId: UUID) {
               </div>
               <UiButton variant="primary" size="sm" :to="`/admin/sessions/${s.id}/live`">
                 <Radio class="h-3.5 w-3.5" />
-                Басқару
+                Управление
               </UiButton>
             </div>
           </div>
@@ -200,7 +197,7 @@ function downloadExport(sessionId: UUID) {
       <!-- Upcoming -->
       <section v-if="upcomingSessions.length > 0" class="mt-6">
         <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Алдағы ({{ upcomingSessions.length }})
+          Предстоящие ({{ upcomingSessions.length }})
         </div>
         <UiCard :padded="false">
           <ul class="divide-y divide-slate-100">
@@ -230,7 +227,7 @@ function downloadExport(sessionId: UUID) {
       <!-- Ended -->
       <section v-if="endedSessions.length > 0" class="mt-6">
         <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Аяқталған ({{ endedSessions.length }})
+          Завершённые ({{ endedSessions.length }})
         </div>
         <UiCard :padded="false">
           <ul class="divide-y divide-slate-100">

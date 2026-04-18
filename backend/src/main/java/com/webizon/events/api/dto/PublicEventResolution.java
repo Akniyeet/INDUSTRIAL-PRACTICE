@@ -46,6 +46,18 @@ public record PublicEventResolution(
         return new PublicEventResolution(State.LANDING, event, null, null, List.of());
     }
 
+    /**
+     * LANDING state, but with an upcoming session attached so the landing
+     * page can render a countdown card ("эфир басталады: 12 сағат 44 минут").
+     * Used when a LIVE session is scheduled far enough in the future that
+     * the immersive waiting room isn't opened yet — but the visitor still
+     * benefits from seeing the date/time and a live countdown.
+     */
+    public static PublicEventResolution landingWithNext(PublicEventView event,
+                                                        PublicSessionView next) {
+        return new PublicEventResolution(State.LANDING, event, null, next, List.of());
+    }
+
     public static PublicEventResolution liveNow(PublicEventView event, PublicSessionView active) {
         return new PublicEventResolution(State.LIVE_NOW, event, active, null, List.of());
     }

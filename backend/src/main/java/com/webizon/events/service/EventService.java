@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.UUID;
 
 /**
@@ -68,6 +69,12 @@ public class EventService {
         if (request.language() != null && !request.language().isBlank()) {
             event.setLanguage(request.language());
         }
+        // "Лендинг Builder" blob: admins can ship the create form with or
+        // without it. Always persist a non-null map so the JSONB column is
+        // happy even when the admin skipped step 5.
+        event.setLandingConfig(
+                request.landingConfig() != null ? request.landingConfig() : new HashMap<>()
+        );
         event.setStatus(EventStatus.DRAFT);
         event.setCreatedByUserId(createdByUserId);
         return eventRepository.save(event);
@@ -88,6 +95,12 @@ public class EventService {
         }
         if (request.language() != null && !request.language().isBlank()) {
             event.setLanguage(request.language());
+        }
+        // Null in PATCH = "no change"; an empty map explicitly clears the
+        // landing customisation. We never overwrite with null so the JSONB
+        // column never flips to a state the constraint forbids.
+        if (request.landingConfig() != null) {
+            event.setLandingConfig(request.landingConfig());
         }
         return event;
     }

@@ -11,13 +11,13 @@ const props = defineProps<{ status: SessionStatus }>()
 
 const config = computed(() => {
   switch (props.status) {
-    case 'SCHEDULED':      return { tone: 'brand'   as const, label: 'Жоспарланған' }
-    case 'LIVE':           return { tone: 'danger'  as const, label: 'Эфирде' }
-    case 'ENDED':          return { tone: 'neutral' as const, label: 'Аяқталды' }
-    case 'CANCELLED':      return { tone: 'neutral' as const, label: 'Бас тартылды' }
-    case 'AUTO_SCHEDULED': return { tone: 'brand'   as const, label: 'Авто-жоспар' }
+    case 'SCHEDULED':      return { tone: 'brand'   as const, label: 'Запланировано' }
+    case 'LIVE':           return { tone: 'danger'  as const, label: 'В эфире' }
+    case 'ENDED':          return { tone: 'neutral' as const, label: 'Завершено' }
+    case 'CANCELLED':      return { tone: 'neutral' as const, label: 'Отменено' }
+    case 'AUTO_SCHEDULED': return { tone: 'brand'   as const, label: 'Авто-план' }
     case 'AUTO_LIVE':      return { tone: 'danger'  as const, label: 'Авто-эфир' }
-    case 'AUTO_ENDED':     return { tone: 'neutral' as const, label: 'Авто аяқталды' }
+    case 'AUTO_ENDED':     return { tone: 'neutral' as const, label: 'Авто завершено' }
     default:               return { tone: 'neutral' as const, label: String(props.status) }
   }
 })

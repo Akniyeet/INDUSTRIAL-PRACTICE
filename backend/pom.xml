@@ -124,18 +124,17 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
-        <!-- ClickHouse -->
+        <!-- ClickHouse — plain jar (no shaded uber-jar classifier) so Spring Boot
+             fat-jar classloader can see all transitive deps in BOOT-INF/lib -->
         <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
             <version>${clickhouse.version}</version>
-            <classifier>all</classifier>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.clickhouse</groupId>
+            <artifactId>clickhouse-http-client</artifactId>
+            <version>${clickhouse.version}</version>
         </dependency>
 
         <!-- OpenAPI / Swagger -->
@@ -200,6 +199,12 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>clickhouse</artifactId>
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>

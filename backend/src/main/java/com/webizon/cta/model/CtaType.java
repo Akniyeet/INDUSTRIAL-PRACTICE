@@ -14,7 +14,7 @@ package com.webizon.cta.model;
  *   <tr><th>Type</th><th>Required field</th><th>Purpose</th></tr>
  *   <tr><td>FILE</td>   <td>{@code fileUrl}</td>   <td>Download a material (checklist, PDF)</td></tr>
  *   <tr><td>LINK</td>   <td>{@code actionUrl}</td> <td>Open an external URL</td></tr>
- *   <tr><td>COURSE</td> <td>{@code actionUrl}</td> <td>Open an EDUSER course page</td></tr>
+ *   <tr><td>COURSE</td> <td>{@code actionUrl}</td> <td>Open a Webizon course page</td></tr>
  *   <tr><td>FORM</td>   <td>{@code actionUrl}</td> <td>Open a lead-capture form</td></tr>
  * </table>
  */

@@ -23,7 +23,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -42,6 +42,10 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
     validate-on-migrate: true
+    driver-class-name: org.postgresql.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/webizon}
+    user: ${SPRING_DATASOURCE_USERNAME:webizon}
+    password: ${SPRING_DATASOURCE_PASSWORD:webizon}
 
   data:
     redis:
@@ -83,13 +87,13 @@ spring:
           jwk-set-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI:http://localhost:8180/realms/webizon/protocol/openid-connect/certs}
 
   mail:
-    host: ${SPRING_MAIL_HOST:localhost}
-    port: ${SPRING_MAIL_PORT:1025}
-    username: ${SPRING_MAIL_USERNAME:}
-    password: ${SPRING_MAIL_PASSWORD:}
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:webizon365@gmail.com}
+    password: ${SPRING_MAIL_PASSWORD:zakafyigejilgzaj}
     properties:
-      mail.smtp.auth: ${SPRING_MAIL_SMTP_AUTH:false}
-      mail.smtp.starttls.enable: ${SPRING_MAIL_SMTP_STARTTLS:false}
+      mail.smtp.auth: ${SPRING_MAIL_SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SPRING_MAIL_SMTP_STARTTLS:true}
       mail.smtp.connectiontimeout: 5000
       mail.smtp.timeout: 10000
       mail.smtp.writetimeout: 10000
@@ -128,7 +132,15 @@ webizon:
 
   minio:
     endpoint: ${WEBIZON_MINIO_ENDPOINT:http://localhost:9000}
-    public-endpoint: ${WEBIZON_MINIO_PUBLIC_ENDPOINT:http://localhost:9002}
+    # public-endpoint is the URL the BROWSER uses to upload files directly to MinIO.
+    # S3 V4 signatures bind the Host header, so the same hostname must be reachable
+    # from both the backend (to sign + call getBucketRegion) and the browser (to PUT).
+    #
+    # Local Docker:      http://host.docker.internal:9010
+    #   → Docker Desktop adds this to the OS hosts file; containers also resolve it.
+    # Local IDE (no Docker): http://localhost:9010
+    # Production:        https://storage.webizon.kz  (real CDN domain, no Docker magic)
+    public-endpoint: ${WEBIZON_MINIO_PUBLIC_ENDPOINT:http://localhost:9010}
     access-key: ${WEBIZON_MINIO_ACCESS_KEY:minioadmin}
     secret-key: ${WEBIZON_MINIO_SECRET_KEY:minioadmin}
     buckets:
@@ -156,6 +168,12 @@ webizon:
     # Byte length of the random bearer token generated per invite.
     # 32 bytes = 256 bits of entropy → base64url-encoded to 43 chars.
     token-bytes: 32
+
+  anthropic:
+    api-key: ${WEBIZON_ANTHROPIC_API_KEY:}
+    model: ${WEBIZON_ANTHROPIC_MODEL:claude-sonnet-4-6-20250514}
+    max-tokens: 512
+    base-url: ${WEBIZON_ANTHROPIC_BASE_URL:https://api.anthropic.com}
 
   moderation:
     flood:

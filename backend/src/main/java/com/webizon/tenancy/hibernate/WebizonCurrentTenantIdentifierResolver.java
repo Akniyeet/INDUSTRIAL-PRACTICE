@@ -25,9 +25,10 @@ public class WebizonCurrentTenantIdentifierResolver implements CurrentTenantIden
 
     @Override
     public Object resolveCurrentTenantIdentifier() {
+        // Return UUID directly — Hibernate 6's @TenantId auto-filter expects
+        // the parameter type to match the column type (UUID), not String.
         return TenantContext.getOptional()
-                .map(UUID::toString)
-                .map(s -> (Object) s)
+                .<Object>map(uuid -> uuid)
                 .orElse(WebizonMultiTenantConnectionProvider.DEFAULT_TENANT);
     }
 

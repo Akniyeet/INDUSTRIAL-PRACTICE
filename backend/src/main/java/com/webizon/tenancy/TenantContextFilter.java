@@ -43,22 +43,32 @@ public class TenantContextFilter extends OncePerRequestFilter {
             FilterChain filterChain) throws ServletException, IOException {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            // Determine tenant id — three sources in priority order:
+            // 1. JWT claim (set by Keycloak protocol mapper in production)
+            // 2. X-Tenant-Id request header (dev / Keycloak mapper not configured)
+            // 3. Nothing — public or cross-tenant endpoint
+            String tenantIdRaw = null;
             if (auth instanceof JwtAuthenticationToken jwtAuth) {
                 Jwt jwt = jwtAuth.getToken();
-                String tenantIdRaw = jwt.getClaimAsString(TENANT_CLAIM);
-                if (tenantIdRaw != null && !tenantIdRaw.isBlank()) {
-                    try {
-                        UUID tenantId = UUID.fromString(tenantIdRaw);
-                        TenantContext.set(tenantId);
-                        MDC.put(MDC_TENANT_KEY, tenantId.toString());
-                    } catch (IllegalArgumentException ex) {
-                        log.warn("Invalid tenant_id claim in JWT: '{}'", tenantIdRaw);
-                    }
-                }
+                tenantIdRaw = jwt.getClaimAsString(TENANT_CLAIM);
 
                 String profileId = jwt.getClaimAsString("profile_id");
                 if (profileId != null) {
                     MDC.put(MDC_PROFILE_KEY, profileId);
+                }
+            }
+            // Fallback: X-Tenant-Id header works regardless of whether JWT already
+            // populated the SecurityContext (filter may run before BearerTokenAuthFilter)
+            if (tenantIdRaw == null || tenantIdRaw.isBlank()) {
+                tenantIdRaw = request.getHeader("X-Tenant-Id");
+            }
+            if (tenantIdRaw != null && !tenantIdRaw.isBlank()) {
+                try {
+                    UUID tenantId = UUID.fromString(tenantIdRaw);
+                    TenantContext.set(tenantId);
+                    MDC.put(MDC_TENANT_KEY, tenantId.toString());
+                } catch (IllegalArgumentException ex) {
+                    log.warn("Invalid tenant_id in JWT claim or X-Tenant-Id header: '{}'", tenantIdRaw);
                 }
             }
 

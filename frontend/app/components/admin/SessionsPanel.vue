@@ -68,7 +68,7 @@ async function refresh() {
   } catch (err) {
     const apiErr = err as { detail?: string; title?: string }
     errorMessage.value =
-      apiErr.detail ?? apiErr.title ?? 'Сессияларды жүктеу қатесі'
+      apiErr.detail ?? apiErr.title ?? 'Ошибка загрузки сессий'
   } finally {
     loading.value = false
   }
@@ -176,11 +176,11 @@ async function runLifecycleAction(
 }
 
 async function startLive(s: SessionResponse) {
-  await runLifecycleAction(s.id, () => api.sessions.startLive(s.id), 'Эфир басталды')
+  await runLifecycleAction(s.id, () => api.sessions.startLive(s.id), 'Эфир начался')
 }
 
 async function startAuto(s: SessionResponse) {
-  await runLifecycleAction(s.id, () => api.sessions.startAuto(s.id), 'Авто-эфир басталды')
+  await runLifecycleAction(s.id, () => api.sessions.startAuto(s.id), 'Авто-эфир начался')
 }
 
 // Destructive actions go through confirm modals.
@@ -205,7 +205,7 @@ async function confirmEnd() {
   await runLifecycleAction(
     s.id,
     () => (isAuto ? api.sessions.endAuto(s.id) : api.sessions.endLive(s.id)),
-    isAuto ? 'Авто-эфир аяқталды' : 'Эфир аяқталды',
+    isAuto ? 'Авто-эфир завершён' : 'Эфир завершён',
   )
   endModalOpen.value = false
   pendingSession.value = null
@@ -214,7 +214,7 @@ async function confirmEnd() {
 async function confirmCancel() {
   if (!pendingSession.value) return
   const s = pendingSession.value
-  await runLifecycleAction(s.id, () => api.sessions.cancel(s.id), 'Сессия бас тартылды')
+  await runLifecycleAction(s.id, () => api.sessions.cancel(s.id), 'Сессия отменена')
   cancelModalOpen.value = false
   pendingSession.value = null
 }
@@ -244,7 +244,7 @@ function formatDuration(seconds: number) {
   if (m < 60) return `${m} мин`
   const h = Math.floor(m / 60)
   const rem = m % 60
-  return rem === 0 ? `${h} сағ` : `${h} сағ ${rem} мин`
+  return rem === 0 ? `${h} ч` : `${h} ч ${rem} мин`
 }
 
 function isActing(id: UUID): boolean {
@@ -269,19 +269,19 @@ const totalCount = computed(() => sessions.value.length)
     <!-- Header row -->
     <div class="flex items-center justify-between gap-3">
       <div>
-        <h2 class="text-lg font-semibold text-slate-900">Сессиялар</h2>
+        <h2 class="text-lg font-semibold text-slate-900">Сессии</h2>
         <p class="mt-0.5 text-sm text-slate-500">
-          Барлығы {{ totalCount }} сессия. LIVE — нақты эфир, AUTO — жазылған қайта ойнату.
+          Всего {{ totalCount }} сессий. LIVE — прямой эфир, AUTO — воспроизведение записи.
         </p>
       </div>
       <div class="flex items-center gap-2">
         <UiButton variant="outline" size="md" :disabled="loading" @click="refresh">
           <RefreshCw class="h-4 w-4" :class="loading && 'animate-spin'" />
-          Жаңарту
+          Обновить
         </UiButton>
         <UiButton variant="primary" size="md" @click="openCreate">
           <Plus class="h-4 w-4" />
-          Жаңа сессия
+          Новая сессия
         </UiButton>
       </div>
     </div>
@@ -290,7 +290,7 @@ const totalCount = computed(() => sessions.value.length)
     <UiCard v-if="errorMessage && !loading" class="border-danger-200 bg-danger-50/60">
       <p class="text-sm text-danger-700">{{ errorMessage }}</p>
       <template #footer>
-        <UiButton variant="outline" size="sm" @click="refresh">Қайта көру</UiButton>
+        <UiButton variant="outline" size="sm" @click="refresh">Повторить</UiButton>
       </template>
     </UiCard>
 
@@ -302,14 +302,14 @@ const totalCount = computed(() => sessions.value.length)
     <!-- Empty -->
     <UiEmpty
       v-else-if="sessions.length === 0"
-      title="Сессиялар жоқ"
-      description="Алғашқы сессияны жасаңыз. LIVE сессия — нақты уақыттағы эфир үшін, AUTO сессия — бұрын жазылған эфирді қайта ойнату үшін."
+      title="Нет сессий"
+      description="Создайте первую сессию. LIVE сессия — для прямого эфира, AUTO сессия — для воспроизведения ранее записанного эфира."
     >
       <template #icon><Calendar class="h-5 w-5" /></template>
       <template #actions>
         <UiButton variant="primary" @click="openCreate">
           <Plus class="h-4 w-4" />
-          Жаңа сессия жасау
+          Новая сессия жасау
         </UiButton>
       </template>
     </UiEmpty>
@@ -320,7 +320,7 @@ const totalCount = computed(() => sessions.value.length)
       <div v-if="liveSessions.length > 0">
         <div class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-danger-600">
           <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-danger-500" />
-          Эфирде
+          В эфире
         </div>
         <div class="space-y-2">
           <div
@@ -336,15 +336,15 @@ const totalCount = computed(() => sessions.value.length)
                   <SessionStatusBadge :status="s.status" />
                 </div>
                 <div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
-                  <span>Басталған: {{ formatRelative(s.actualStartedAt || s.startTime) }}</span>
+                  <span>Начало: {{ formatRelative(s.actualStartedAt || s.startTime) }}</span>
                   <span>·</span>
-                  <span>Жоспарлы ұзақтық: {{ formatDuration(s.plannedDurationSeconds) }}</span>
+                  <span>Планируемая длительность: {{ formatDuration(s.plannedDurationSeconds) }}</span>
                 </div>
               </div>
               <div class="flex items-center gap-2">
                 <UiButton variant="primary" size="sm" :to="`/admin/sessions/${s.id}/live`">
                   <Radio class="h-3.5 w-3.5" />
-                  Эфирді басқару
+                  Управление эфиром
                 </UiButton>
                 <UiButton
                   variant="danger"
@@ -353,7 +353,7 @@ const totalCount = computed(() => sessions.value.length)
                   @click="askEnd(s)"
                 >
                   <Square class="h-3.5 w-3.5" />
-                  Аяқтау
+                  Завершить
                 </UiButton>
               </div>
             </div>
@@ -364,7 +364,7 @@ const totalCount = computed(() => sessions.value.length)
       <!-- Upcoming -->
       <div v-if="upcomingSessions.length > 0">
         <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Алдағы
+          Предстоящие
         </div>
         <UiCard :padded="false">
           <ul class="divide-y divide-slate-100">
@@ -390,7 +390,7 @@ const totalCount = computed(() => sessions.value.length)
               <div class="flex items-center gap-1.5">
                 <UiButton variant="ghost" size="sm" @click="openEdit(s)">
                   <Edit3 class="h-3.5 w-3.5" />
-                  Өңдеу
+                  Редактировать
                 </UiButton>
                 <UiButton
                   v-if="s.status === 'SCHEDULED'"
@@ -400,7 +400,7 @@ const totalCount = computed(() => sessions.value.length)
                   @click="startLive(s)"
                 >
                   <Play class="h-3.5 w-3.5" />
-                  Эфирді бастау
+                  Начать эфир
                 </UiButton>
                 <UiButton
                   v-if="s.status === 'AUTO_SCHEDULED'"
@@ -410,7 +410,7 @@ const totalCount = computed(() => sessions.value.length)
                   @click="startAuto(s)"
                 >
                   <Play class="h-3.5 w-3.5" />
-                  Автоны бастау
+                  Начать авто
                 </UiButton>
                 <UiButton
                   variant="ghost"
@@ -419,7 +419,7 @@ const totalCount = computed(() => sessions.value.length)
                   @click="askCancel(s)"
                 >
                   <Ban class="h-3.5 w-3.5" />
-                  Бас тарту
+                  Отменить
                 </UiButton>
               </div>
             </li>
@@ -430,7 +430,7 @@ const totalCount = computed(() => sessions.value.length)
       <!-- Ended -->
       <div v-if="endedSessions.length > 0">
         <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Аяқталған
+          Завершённые
         </div>
         <UiCard :padded="false">
           <ul class="divide-y divide-slate-100">
@@ -451,14 +451,16 @@ const totalCount = computed(() => sessions.value.length)
                 <UiButton variant="ghost" size="sm" :to="`/admin/sessions/${s.id}/analytics`">
                   <BarChart3 class="h-3.5 w-3.5" />
                   Аналитика
+
                 </UiButton>
                 <UiButton v-if="s.type === 'LIVE'" variant="ghost" size="sm" :to="`/admin/sessions/${s.id}/timeline`">
                   <Clock class="h-3.5 w-3.5" />
                   Таймлайн
+
                 </UiButton>
                 <UiButton v-if="s.type === 'LIVE'" variant="ghost" size="sm" :to="`/admin/sessions/${s.id}/chat-review`">
                   <MessageSquareText class="h-3.5 w-3.5" />
-                  Чат тарихы
+                  История чата
                 </UiButton>
                 <UiButton variant="ghost" size="sm" @click="downloadExport(s.id)">
                   <Download class="h-3.5 w-3.5" />
@@ -466,7 +468,7 @@ const totalCount = computed(() => sessions.value.length)
                 </UiButton>
                 <UiButton variant="ghost" size="sm" :to="`/admin/sessions/${s.id}`">
                   <ExternalLink class="h-3.5 w-3.5" />
-                  Шолу
+                  Обзор
                 </UiButton>
               </div>
             </li>
@@ -478,7 +480,7 @@ const totalCount = computed(() => sessions.value.length)
       <div v-if="cancelledSessions.length > 0">
         <details class="group">
           <summary class="mb-2 flex cursor-pointer items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 transition-colors hover:text-slate-600">
-            Бас тартылған ({{ cancelledSessions.length }})
+            Отменённые ({{ cancelledSessions.length }})
           </summary>
           <UiCard :padded="false">
             <ul class="divide-y divide-slate-100">
@@ -501,7 +503,7 @@ const totalCount = computed(() => sessions.value.length)
     <!-- Form modal -->
     <UiModal
       v-model="formModalOpen"
-      :title="formMode === 'create' ? 'Жаңа сессия' : 'Сессияны өңдеу'"
+      :title="formMode === 'create' ? 'Новая сессия' : 'Редактирование сессии'"
       size="lg"
     >
       <SessionForm
@@ -515,9 +517,9 @@ const totalCount = computed(() => sessions.value.length)
     </UiModal>
 
     <!-- End confirm -->
-    <UiModal v-model="endModalOpen" title="Эфирді аяқтау" size="sm">
+    <UiModal v-model="endModalOpen" title="Завершить эфир" size="sm">
       <p class="text-sm text-slate-600">
-        Эфир аяқталғаннан кейін көрермендер бөлмеден шығарылады. Бұл әрекетті қайтару мүмкін емес.
+        После завершения эфира зрители будут отключены от комнаты. Это действие нельзя отменить.
       </p>
       <template #footer>
         <UiButton
@@ -525,7 +527,7 @@ const totalCount = computed(() => sessions.value.length)
           :disabled="actingSessionId !== null"
           @click="endModalOpen = false"
         >
-          Бас тарту
+          Отмена
         </UiButton>
         <UiButton
           variant="danger"
@@ -533,7 +535,7 @@ const totalCount = computed(() => sessions.value.length)
           @click="confirmEnd"
         >
           <Square class="h-4 w-4" />
-          Аяқтау
+          Завершить
         </UiButton>
       </template>
     </UiModal>
@@ -543,7 +545,7 @@ const totalCount = computed(() => sessions.value.length)
       <div class="flex items-start gap-3 rounded-lg border border-warning-200 bg-warning-50 p-3">
         <AlertTriangle class="mt-0.5 h-5 w-5 shrink-0 text-warning-500" />
         <p class="text-sm text-warning-800">
-          Сессия бас тартылғаннан кейін оны қайта бастау мүмкін емес. Жаңа сессия жасау керек болады.
+          Сессия бас тартылғаннан кейін оны қайта бастау мүмкін емес. Новая сессия жасау керек болады.
         </p>
       </div>
       <template #footer>

@@ -29,46 +29,72 @@ Webizon is a standalone, multi-tenant webinar and live-event platform. Customers
 | Billing | CloudPayments Kazakhstan (KZT) |
 | Deploy | Docker → Kubernetes |
 
+📚 **Documentation:** [`docs/README.md`](./docs/README.md) — documentation index and navigation.  
+📋 **What exists:** [`docs/WHAT_EXISTS.md`](./docs/WHAT_EXISTS.md) — **read this first** before making any changes.  
 See [`CLAUDE.md`](./CLAUDE.md) for the full engineering constitution and rationale.
 
 ---
 
-## Quickstart (Local Development)
+## 🚀 Жобаны іске қосу (How to Start)
 
-### Prerequisites
-- Docker Desktop
-- JDK 21 (Temurin recommended)
-- Maven 3.9+
-- Node.js 20 LTS
-- Make
+> Толық нұсқаулық: **[docs/ONBOARDING.md](./docs/ONBOARDING.md)**
 
-### Start everything
+### 1. Барлық сервистерді іске қосу (Docker)
+
 ```bash
-make dev-up
+# ⚠️ МАҢЫЗДЫ: тек осы командамен қос — docker run -e қолданба!
+cd E:/PROJECT/webizon
+docker compose up -d
 ```
 
-This starts PostgreSQL, Redis, Kafka, Centrifugo, MinIO, Keycloak, the API, and the frontend.
+### 2. Барлығы іске қосылғанын тексеру
 
-### Access the services
-- Frontend: http://localhost:3000
-- API: http://localhost:8080
-- API docs: http://localhost:8080/swagger-ui.html
-- Keycloak: http://localhost:8180 (admin / admin)
-- Centrifugo admin: http://localhost:8000
-- MinIO console: http://localhost:9001
-- Kafka UI: http://localhost:8090
-
-### Stop everything
 ```bash
-make dev-down
+docker ps
 ```
 
-### Run tests
+13 контейнер **healthy** болуы керек. Backend 30–60 секунд жүктеледі.
+
+### 3. URL-дер (нақты порттар)
+
+| Сервис | URL |
+|--------|-----|
+| **Frontend** | http://localhost:3001 |
+| **Admin панелі** | http://localhost:3001/admin |
+| **Platform Super Admin** | http://localhost:3001/platform |
+| Backend API | http://localhost:8081/actuator/health |
+| Keycloak | http://localhost:8180 (admin/admin) |
+| MinIO Console | http://localhost:9011 |
+| Kafka UI | http://localhost:8090 |
+| Grafana | http://localhost:3002 (admin/admin) |
+
+### 4. Тест аккаунт
+
+```
+Email:    webizon365@gmail.com
+Password: Test1234!
+```
+
+### 5. Тоқтату
+
 ```bash
-make test              # all tests
-make test-backend      # backend only
-make test-frontend     # frontend only
-make test-integration  # testcontainers-based
+docker compose down
+```
+
+### ⚠️ Жиі кездесетін қате
+
+**Ескі контейнерлер жүгіріп тұрса** (порт 3000/8080 — біздікі 3001/8081):
+```bash
+# Қай compose stack-тен екенін тексер:
+docker inspect webizon-frontend --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}'
+
+# Егер біздің directory емес болса — тоқтат:
+cd <сол директория>
+docker compose down
+
+# Содан кейін біздікін қос:
+cd E:/PROJECT/webizon
+docker compose up -d
 ```
 
 ---
@@ -107,10 +133,16 @@ webizon/
 │   └── k8s/                Kubernetes manifests (later)
 │
 ├── docs/
+│   ├── README.md           ← Документация индексі (навигация)
+│   ├── WHAT_EXISTS.md      ← Не бар, қайта жасама тізімі (алдымен оқы!)
+│   ├── ONBOARDING.md       ← Жобаны іске қосу нұсқаулығы
+│   ├── ARCHITECTURE.md     ← Жүйе архитектурасы
+│   ├── AUTH.md             ← Авторизация жүйесі
+│   ├── API.md              ← Барлық API endpoint-тар
+│   ├── CHANGELOG.md        ← Өзгерістер тарихы
 │   ├── adr/                Architecture Decision Records
 │   ├── specs/              Feature specs
-│   ├── runbooks/           Incident runbooks
-│   └── PLAN.md             Implementation plan
+│   └── runbooks/           Incident runbooks
 │
 ├── CLAUDE.md               Engineering constitution
 ├── README.md               This file

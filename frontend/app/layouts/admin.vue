@@ -18,6 +18,9 @@ import {
   Radio,
   Settings,
   Users,
+  Wallet2,
+  Activity,
+  ShieldCheck,
   X,
 } from 'lucide-vue-next'
 import { Menu as HMenu, MenuButton, MenuItem, MenuItems } from '@headlessui/vue'
@@ -27,20 +30,32 @@ const auth = useAuthStore()
 const mobileOpen = ref(false)
 
 const nav = [
-  { to: '/admin',          label: 'Басты бет',  icon: LayoutDashboard },
-  { to: '/admin/events',   label: 'Ивенттер',   icon: Calendar },
-  { to: '/admin/sessions', label: 'Сессиялар',  icon: Radio },
-  { to: '/admin/members',  label: 'Мүшелер',    icon: Users },
-  { to: '/admin/settings', label: 'Баптаулар',  icon: Settings },
+  { to: '/admin',          label: 'Dashboard',     icon: LayoutDashboard },
+  { to: '/admin/events',   label: 'Мероприятия',   icon: Calendar },
+  { to: '/admin/sessions', label: 'Сессии',        icon: Radio },
+  { to: '/admin/members',  label: 'Команда',       icon: Users },
+  { to: '/admin/settings', label: 'Настройки',     icon: Settings },
+  { to: '/admin/wallet',   label: 'Кошелёк',       icon: Wallet2 },
+  { to: '/admin/infrastructure', label: 'Инфраструктура', icon: Activity },
 ]
 
 function logout() {
   auth.logout()
-  navigateTo('/auth/sign-in')
+  navigateTo('/')
 }
 
 const displayName = computed(() => auth.user?.fullName || auth.user?.email || 'Гость')
-const tenantLabel = computed(() => auth.user?.tenantId ? 'Workspace' : 'No workspace')
+
+const route = useRoute()
+const activeNavLabel = computed(() => {
+  // Exact match first (/admin itself)
+  const exact = nav.find(item => route.path === item.to)
+  if (exact) return exact.label
+  // Prefix match for sub-pages (/admin/events/create → Мероприятия)
+  return nav
+    .filter(item => item.to !== '/admin')
+    .find(item => route.path.startsWith(item.to))?.label ?? 'Webizon'
+})
 </script>
 
 <template>
@@ -51,9 +66,8 @@ const tenantLabel = computed(() => auth.user?.tenantId ? 'Workspace' : 'No works
     <aside
       class="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-slate-200 bg-white lg:flex"
     >
-      <div class="flex h-16 items-center gap-2 border-b border-slate-100 px-5 font-semibold">
-        <span class="inline-block h-3 w-3 rounded-full bg-brand-600" />
-        <span class="text-brand-700">Webizon</span>
+      <div class="flex h-16 items-center border-b border-slate-100 px-4">
+        <LogoFull :size="30" :animate="false" />
       </div>
 
       <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4 scroll-thin">
@@ -69,13 +83,13 @@ const tenantLabel = computed(() => auth.user?.tenantId ? 'Workspace' : 'No works
         </NuxtLink>
       </nav>
 
-      <div class="border-t border-slate-100 p-3">
+      <div v-if="auth.isPlatformAdmin" class="border-t border-slate-100 p-3">
         <NuxtLink
-          to="/admin/events/create"
-          class="flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
+          to="/platform"
+          class="flex items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
         >
-          <Megaphone class="h-4 w-4" />
-          Жаңа ивент
+          <ShieldCheck class="h-4 w-4" />
+          Platform Admin
         </NuxtLink>
       </div>
     </aside>
@@ -107,11 +121,8 @@ const tenantLabel = computed(() => auth.user?.tenantId ? 'Workspace' : 'No works
         v-if="mobileOpen"
         class="fixed inset-y-0 left-0 z-50 w-72 border-r border-slate-200 bg-white lg:hidden"
       >
-        <div class="flex h-16 items-center justify-between gap-2 border-b border-slate-100 px-5">
-          <span class="flex items-center gap-2 font-semibold text-brand-700">
-            <span class="inline-block h-3 w-3 rounded-full bg-brand-600" />
-            Webizon
-          </span>
+        <div class="flex h-16 items-center justify-between gap-2 border-b border-slate-100 px-4">
+          <LogoFull :size="28" :animate="false" />
           <button
             class="rounded-md p-1 text-slate-500 hover:bg-slate-100"
             @click="mobileOpen = false"
@@ -148,8 +159,10 @@ const tenantLabel = computed(() => auth.user?.tenantId ? 'Workspace' : 'No works
           <Menu class="h-5 w-5" />
         </button>
 
-        <div class="hidden items-center gap-2 text-sm text-slate-500 lg:flex">
-          <span class="font-medium text-slate-900">{{ tenantLabel }}</span>
+        <div class="hidden min-w-0 flex-col justify-center lg:flex">
+          <span class="truncate text-sm font-semibold text-slate-900 leading-tight">
+            {{ activeNavLabel }}
+          </span>
         </div>
 
         <HMenu as="div" class="relative ml-auto">
@@ -188,7 +201,7 @@ const tenantLabel = computed(() => auth.user?.tenantId ? 'Workspace' : 'No works
                   @click="logout"
                 >
                   <LogOut class="h-4 w-4" />
-                  Шығу
+                  Выйти
                 </button>
               </MenuItem>
             </MenuItems>

@@ -71,6 +71,31 @@ public interface AnalyticsEventRepository extends JpaRepository<AnalyticsEvent, 
                                  @Param("eventType") String eventType,
                                  @Param("ctaId") String ctaId);
 
+    /** Count events of given types for a specific user in a session — used by AI lead scoring. */
+    @Query("""
+           select count(a) from AnalyticsEvent a
+           where a.sessionId = :sessionId
+             and a.profileId = :profileId
+             and a.eventType in :eventTypes
+           """)
+    long countBySessionIdAndProfileIdAndEventTypeIn(
+            @Param("sessionId") UUID sessionId,
+            @Param("profileId") UUID profileId,
+            @Param("eventTypes") List<AnalyticsEventType> eventTypes);
+
+    /** Fetch events of given types for a specific user in a session — used by AI lead scoring. */
+    @Query("""
+           select a from AnalyticsEvent a
+           where a.sessionId = :sessionId
+             and a.profileId = :profileId
+             and a.eventType in :eventTypes
+           order by a.createdAt asc
+           """)
+    List<AnalyticsEvent> findAllBySessionIdAndProfileIdAndEventTypeIn(
+            @Param("sessionId") UUID sessionId,
+            @Param("profileId") UUID profileId,
+            @Param("eventTypes") List<AnalyticsEventType> eventTypes);
+
     /** Profiles that triggered a specific event type in a session — used by session export. */
     @Query("""
            select distinct a.profileId from AnalyticsEvent a

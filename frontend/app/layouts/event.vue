@@ -13,13 +13,13 @@ const { appName } = useRuntimeConfig().public
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50 text-slate-900">
+  <div class="min-h-screen bg-slate-950 text-white antialiased">
     <UiToastContainer />
     <main>
       <slot />
     </main>
-    <footer class="border-t border-slate-200 py-6 text-center text-xs text-slate-400">
-      Powered by <span class="font-semibold text-slate-500">{{ appName }}</span>
+    <footer class="border-t border-white/[0.06] py-6 text-center text-xs text-slate-500">
+      Powered by <span class="font-semibold text-slate-300">{{ appName }}</span>
     </footer>
   </div>
 </template>

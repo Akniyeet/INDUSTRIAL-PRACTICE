@@ -46,7 +46,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Server-only: used by Nitro routeRules to proxy to the backend inside the
     // Docker network. NEVER expose this to the browser.
-    backendInternalUrl: process.env.NUXT_BACKEND_INTERNAL_URL || 'http://backend:8080',
+    backendInternalUrl: process.env.NUXT_BACKEND_INTERNAL_URL || (process.dev ? 'http://localhost:8081' : 'http://backend:8080'),
 
     public: {
       appName: 'Webizon',
@@ -64,7 +64,7 @@ export default defineNuxtConfig({
   // Proxy browser -> Nitro -> backend. See CLAUDE.md §Docker networking.
   routeRules: {
     '/api/backend/**': {
-      proxy: `${process.env.NUXT_BACKEND_INTERNAL_URL || 'http://backend:8080'}/api/**`,
+      proxy: `${process.env.NUXT_BACKEND_INTERNAL_URL || (process.dev ? 'http://localhost:8081' : 'http://backend:8080')}/api/**`,
     },
   },
 
@@ -82,7 +82,10 @@ export default defineNuxtConfig({
         { name: 'description', content: 'Платформа вебинаров и онлайн-трансляций для школ, коучей и компаний. Оплата за факт — без абонплаты.' },
       ],
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg?v=2' },
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap' },
       ],
     },
   },
