@@ -124,6 +124,29 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
+        <!-- Apache HttpClient 5 (backs the pooled RestClient for Centrifugo).
+             Spring Boot 3 has built-in support for this factory, but the
+             artifact is NOT a transitive dep of spring-web — we must bring it
+             in explicitly. Without the pool, every Centrifugo publish opens a
+             fresh TCP connection which becomes the room's hot-path bottleneck
+             at 10+ msg/sec. -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+        </dependency>
+
+        <!-- Caffeine (Spring Cache provider for hot read-mostly domain state:
+             chat settings, active CTA lists, tenant metadata). Keeps the
+             per-message DB roundtrip budget under control on room hot paths. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
         <!-- ClickHouse — plain jar (no shaded uber-jar classifier) so Spring Boot
              fat-jar classloader can see all transitive deps in BOOT-INF/lib -->
         <dependency>

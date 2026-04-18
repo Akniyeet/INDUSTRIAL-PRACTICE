@@ -3,8 +3,11 @@ package com.webizon.chat.service;
 import com.webizon.chat.model.ChatMode;
 import com.webizon.chat.model.EventChatSettings;
 import com.webizon.chat.repo.EventChatSettingsRepository;
+import com.webizon.config.CacheConfig;
 import com.webizon.events.repo.EventRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,7 +39,19 @@ public class ChatSettingsService {
     /**
      * Fetch the settings for an event, creating a default row if none
      * exists yet. Idempotent.
+     *
+     * <p>Cached under {@link CacheConfig#CACHE_CHAT_SETTINGS} keyed by
+     * {@code eventId}. Every chat send hits this method via
+     * {@code ChatService.sendMessage}, and every room bootstrap hits it
+     * via {@code RoomService}; at 500 msg/s in a busy room that's 500
+     * otherwise-avoidable {@code SELECT event_chat_settings} queries
+     * per second. The entity has no lazy associations so caching the
+     * detached instance is safe — callers treat it as read-only.
+     *
+     * <p>The returned object is evicted by {@link #update(UUID,
+     * ChatSettingsPatch)} so admin changes flip in on next read.
      */
+    @Cacheable(cacheNames = CacheConfig.CACHE_CHAT_SETTINGS, key = "#eventId")
     @Transactional
     public EventChatSettings findOrCreate(UUID eventId) {
         return settingsRepository.findByEventId(eventId)
@@ -57,9 +72,15 @@ public class ChatSettingsService {
         return settingsRepository.save(settings);
     }
 
+    @CacheEvict(cacheNames = CacheConfig.CACHE_CHAT_SETTINGS, key = "#eventId")
     @Transactional
     public EventChatSettings update(UUID eventId, ChatSettingsPatch patch) {
-        EventChatSettings settings = findOrCreate(eventId);
+        // Bypass the cached findOrCreate: we must see the managed row
+        // in the current transaction so the mutations below flush on
+        // commit. The cache is then evicted by the annotation so the
+        // next reader sees the updated settings.
+        EventChatSettings settings = settingsRepository.findByEventId(eventId)
+                .orElseGet(() -> createDefaults(eventId));
         if (patch.allowLinks() != null) settings.setAllowLinks(patch.allowLinks());
         if (patch.slowModeSeconds() != null) settings.setSlowModeSeconds(patch.slowModeSeconds());
         if (patch.showParticipantCount() != null) settings.setShowParticipantCount(patch.showParticipantCount());

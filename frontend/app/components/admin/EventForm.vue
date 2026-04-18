@@ -80,7 +80,6 @@ const coverImageUrl = ref(props.initial?.coverImageUrl ?? '')
 const coverFile = ref<File | null>(null)
 const coverPreview = ref<string | null>(null)
 const uploadingCover = ref(false)
-const youtubeUrl = ref('')
 const plannedDateTime = ref('')
 const timezone = ref(props.initial?.timezone ?? 'Asia/Almaty')
 const language = ref(props.initial?.language ?? 'kk')
@@ -571,12 +570,10 @@ async function onSubmit() {
               <input ref="coverInput" type="file" class="hidden" accept="image/jpeg,image/png,image/webp" @change="onCoverSelect" />
             </div>
 
-            <div class="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label class="mb-1.5 block text-sm font-medium text-slate-700">Дата и время эфира</label>
-                <input v-model="plannedDateTime" type="datetime-local" class="input-base" />
-              </div>
-              <UiInput v-model="youtubeUrl" label="YouTube URL" placeholder="https://youtube.com/live/..." />
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-slate-700">Дата и время эфира</label>
+              <input v-model="plannedDateTime" type="datetime-local" class="input-base" />
+              <p class="mt-1 text-xs text-slate-500">Мероприятие создаётся без сессии; саму сессию (дата + YouTube URL) заведёте на следующем шаге в карточке мероприятия.</p>
             </div>
 
             <div class="grid gap-5 sm:grid-cols-2">

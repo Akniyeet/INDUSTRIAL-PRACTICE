@@ -66,6 +66,26 @@ public interface SessionAttendanceRepository extends JpaRepository<SessionAttend
     List<SessionAttendance> findAllByProfileIdOrderByFirstJoinedAtDesc(UUID profileId);
 
     /**
+     * Count how many sessions of the given event this profile has
+     * attended. Backs {@link com.webizon.analytics.service.LeadSignalEvaluator}'s
+     * {@code RETURNED_FOR_AUTO} rule without hydrating the profile's
+     * entire lifetime attendance history into the JPA session — on a
+     * busy event the old {@code findAllByProfileId…} version was
+     * materialising dozens of rows per room-entry event.
+     *
+     * <p>Relies on the composite index
+     * {@code session_attendance_profile_event_idx (profile_id, event_id)}
+     * added in V021.
+     */
+    @Query("""
+           select count(a) from SessionAttendance a
+           where a.profileId = :profileId
+             and a.eventId   = :eventId
+           """)
+    long countByProfileIdAndEventId(@Param("profileId") UUID profileId,
+                                     @Param("eventId") UUID eventId);
+
+    /**
      * Sum of {@code totalConnectedSeconds} across every attendee of
      * a session. This is the seat-second aggregate the billing usage
      * sweeper converts into a {@code SEAT_LIVE} / {@code SEAT_AUTO}

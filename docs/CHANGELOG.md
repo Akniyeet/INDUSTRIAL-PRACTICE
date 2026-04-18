@@ -17,6 +17,61 @@
 
 ---
 
+## 2026-04-18 (кешкі айналым)
+
+### Backend Performance — P0 Bottleneck Fixes + V021 Hot-Path Indexes
+**Не өзгерді:** Backend performance аудиті төрт P0 hot-path мәселені тапты — олардың бәрі осы жерде жөнделді. Негізгі мақсат — әр live room (сайттың ең жүктелетін жолы) тек қажетті DB roundtrip-терді жасайтын болу.
+
+**Себебі:**
+- **P0-1:** `CentrifugoClient` әр publish үшін жаңа TCP connection ашатын (`SimpleClientHttpRequestFactory`). 10 msg/s room-та → секундына 10 TCP handshake → 50K+ viewer сценарийде ephemeral port таусылу тәуекелі.
+- **P0-2:** `TimelineReplayEngine.tick()` секунд сайын `tenantRepository.findAll()` + әр tenant үшін `findAllByStatus(AUTO_LIVE)`. 1000 tenant → 1000 query/секунд, ешбір AUTO_LIVE session жоқ болса да.
+- **P0-3:** `LeadSignalEvaluator.evaluateReturnedForAuto()` `ROOM_ENTERED` сайын profile-дің БҮКІЛ attendance тарихын (50+ сессия) hydrate ететін.
+- **P0-4:** `ChatSettingsService.findOrCreate()` және `CtaService.listActive()` оқулық cache жоқ — 500 msg/s room-та 500 қайталанатын `SELECT event_chat_settings` query.
+
+**P0-1 — CentrifugoClient pooling (`backend/.../realtime/CentrifugoClient.java`):**
+- Apache HttpClient 5 + `PoolingHttpClientConnectionManager` (maxTotal=500, maxPerRoute=200).
+- `ConnectionConfig` 2s connect / 5s socket timeout + 10s `validateAfterInactivity` (Centrifugo restart/reset детекциясы).
+- `evictIdleConnections(30s)` idle connection утилизациясы.
+- `disableAutomaticRetries()` — publish "log + return false" семантикасы сақталады.
+
+**P0-2 — TimelineReplayEngine tenant cache (`backend/.../autosession/service/TimelineReplayEngine.java`):**
+- `cachedTenantIds` + `cachedTenantIdsAtMs` поля, 60s TTL.
+- DB қатесі болса — cache-та бар тізімді сол күйінде қайтару (replay loop бос қалмайды).
+- `loadTenantIds()` қайта жазылды — волатильді поля + atomic swap, бір thread scheduler қолжетімді.
+
+**P0-3 — LeadSignalEvaluator count query (`backend/.../analytics/service/LeadSignalEvaluator.java`):**
+- `attendanceRepository.findAllByProfileIdOrderByFirstJoinedAtDesc()` → `countByProfileIdAndEventId(profileId, eventId)`.
+- Жаңа scalar count query бір index lookup — JPA session-ға entity-лер hydrate етілмейді.
+
+**P0-4 — Caffeine cache (`backend/.../config/CacheConfig.java`):**
+- Жаңа `@Configuration @EnableCaching` класс, екі cache: `chatSettings` (event-ке бір) және `activeCtas` (event-ке тізім).
+- TTL 60s, max 10K entry. Admin панелінен жазу `@CacheEvict` арқылы лезде көрінеді.
+- `ChatSettingsService.findOrCreate()` → `@Cacheable("chatSettings", key="#eventId")`.
+- `ChatSettingsService.update()` → `@CacheEvict`.
+- `CtaService.listActive()` → `@Cacheable("activeCtas", key="#eventId")`.
+- `CtaService.create/update/toggleActive/delete` → `@CacheEvict`.
+
+**V021 hot-path indexes (`backend/.../db/migration/V021__hot_path_indexes.sql`):**
+1. `sessions_airing_partial_idx` — `(tenant_id, id) WHERE status IN ('LIVE','AUTO_LIVE')`. Replay engine tick-і тенант саны қанша өссе де тұрақты жылдам.
+2. `session_attendance_profile_event_idx` — `(profile_id, event_id)`. P0-3 count query-ды қолдайды.
+3. `session_attendance_present_idx` — `(session_id) WHERE left_at IS NULL`. Room bootstrap-тағы "қазір қанша адам қарап отыр" count-ын үдетеді.
+4. `analytics_events_cta_id_idx` — `((metadata->>'ctaId')) WHERE event_type IN ('CTA_IMPRESSION','CTA_CLICK','CTA_DOWNLOAD')`. CTA CTR dashboard-қа арналған expression index (GIN-нен арзан).
+
+**Cleanup (audit findings):**
+- Өшірілді: `backend/.../chat/api/dto/HistoricalChatMessageResponse.java` — `autosession.api.dto` нұсқасымен толық қайталанатын DTO, ешбір сілтеме жоқ.
+- Өшірілді: `frontend/app/components/admin/EventForm.vue` ішіндегі `youtubeUrl` ref + input — ешқашан payload-қа жіберілмейтін dead code; енді "сессия кейін құрыласы" туралы hint көрсетіледі.
+- Өшірілді: `LeadSignalEvaluator.java` ішіндегі қолданылмайтын `import java.util.List`.
+
+**Dependencies (`backend/pom.xml`):**
+- `org.apache.httpcomponents.client5:httpclient5` (Centrifugo pool үшін, Spring Boot transitively алмайды).
+- `spring-boot-starter-cache` + `com.github.ben-manes.caffeine:caffeine` (Caffeine cache provider).
+
+**Күтілетін нәтиже:** room bootstrap p95 latency −50%+, chat send тізбегі 4-5 roundtrip → 1-2, Centrifugo publish тұрақты (port exhaustion тәуекелі жоқ). Өнім сипаттамасында көрсетілген 50-60K concurrent viewer мақсатына қол жеткізу үшін осы негізгі төрт мәселе алдын-ала шешілгені маңызды.
+
+**Қалған P1/P2 (кейінге):** RoomService.bootstrap 7 DB roundtrip паралелл, AnalyticsRecorder @Async, append-only entity-лерден BaseEntity шешу — audit есебінде көрсетілген.
+
+---
+
 ## 2026-04-18
 
 ### Public Event Landing — Broadcast-Universe Polish + End-to-End Landing Builder

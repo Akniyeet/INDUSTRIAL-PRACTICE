@@ -1,5 +1,6 @@
 package com.webizon.cta.service;
 
+import com.webizon.config.CacheConfig;
 import com.webizon.cta.model.CtaPlacement;
 import com.webizon.cta.model.CtaType;
 import com.webizon.cta.model.EventCta;
@@ -15,6 +16,8 @@ import com.webizon.timeline.model.TimelineActionType;
 import com.webizon.timeline.service.TimelineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,6 +69,7 @@ public class CtaService {
     // CRUD
     // ------------------------------------------------------------------
 
+    @CacheEvict(cacheNames = CacheConfig.CACHE_ACTIVE_CTAS, key = "#eventId")
     @Transactional
     public EventCta create(UUID eventId, UUID creatorUserId, CtaCreateCommand cmd) {
         Event event = requireEvent(eventId);
@@ -88,6 +92,7 @@ public class CtaService {
         return ctaRepository.save(cta);
     }
 
+    @CacheEvict(cacheNames = CacheConfig.CACHE_ACTIVE_CTAS, key = "#eventId")
     @Transactional
     public EventCta update(UUID eventId, UUID ctaId, CtaUpdateCommand cmd) {
         EventCta cta = requireCta(eventId, ctaId);
@@ -104,6 +109,7 @@ public class CtaService {
         return cta;
     }
 
+    @CacheEvict(cacheNames = CacheConfig.CACHE_ACTIVE_CTAS, key = "#eventId")
     @Transactional
     public EventCta toggleActive(UUID eventId, UUID ctaId, boolean active) {
         EventCta cta = requireCta(eventId, ctaId);
@@ -111,6 +117,7 @@ public class CtaService {
         return cta;
     }
 
+    @CacheEvict(cacheNames = CacheConfig.CACHE_ACTIVE_CTAS, key = "#eventId")
     @Transactional
     public void delete(UUID eventId, UUID ctaId) {
         EventCta cta = requireCta(eventId, ctaId);
@@ -123,6 +130,18 @@ public class CtaService {
         return ctaRepository.findAllByEventIdOrderByPriorityDesc(eventId);
     }
 
+    /**
+     * Active CTAs for an event, ordered by priority. Cached under
+     * {@link CacheConfig#CACHE_ACTIVE_CTAS} keyed by {@code eventId}:
+     * {@code RoomService.bootstrap} calls this on every room join to
+     * seed the client's visible-CTA list, so a busy event's join
+     * burst used to serialise on this query.
+     *
+     * <p>The cache is evicted whenever a CTA is created, updated,
+     * toggled, or deleted for the event, so admin panel changes flip
+     * in without a restart.
+     */
+    @Cacheable(cacheNames = CacheConfig.CACHE_ACTIVE_CTAS, key = "#eventId")
     @Transactional(readOnly = true)
     public List<EventCta> listActive(UUID eventId) {
         requireEvent(eventId);

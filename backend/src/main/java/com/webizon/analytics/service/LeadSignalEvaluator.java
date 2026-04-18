@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -113,11 +112,15 @@ public class LeadSignalEvaluator {
     }
 
     private void evaluateReturnedForAuto(AnalyticsEvent event) {
-        List<com.webizon.analytics.model.SessionAttendance> history =
-                attendanceRepository.findAllByProfileIdOrderByFirstJoinedAtDesc(event.getProfileId());
-        long sameEventAttendance = history.stream()
-                .filter(a -> a.getEventId().equals(event.getEventId()))
-                .count();
+        // This path fires on every ROOM_ENTERED, so materialising the
+        // profile's entire lifetime attendance history was a real hot
+        // spot — a power user with 50+ prior attendances paid the
+        // worst price on every re-entry. The count query below returns
+        // a single scalar and is served from the
+        // session_attendance_profile_event_idx composite index added
+        // in V021.
+        long sameEventAttendance = attendanceRepository.countByProfileIdAndEventId(
+                event.getProfileId(), event.getEventId());
         if (sameEventAttendance >= 2) {
             emitIfMissing(event, LeadSignalType.RETURNED_FOR_AUTO, 20);
         }

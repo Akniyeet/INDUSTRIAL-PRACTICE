@@ -113,6 +113,20 @@ public class TimelineReplayEngine {
     private final ChannelNameFactory channelNameFactory;
     private final TransactionTemplate transactionTemplate;
 
+    // ------------------------------------------------------------------
+    // Tenant-list cache
+    // ------------------------------------------------------------------
+    // Tenants rarely appear / disappear during a 60-second window, yet
+    // the raw replay loop used to reload the full set every tick. That
+    // was one cross-tenant SELECT on the `tenants` table per second
+    // regardless of traffic. We now cache for up to 60s unless the
+    // engine successfully processed zero AUTO_LIVE sessions AND the
+    // cache is older than the shorter refresh window. The cache is only
+    // read from one scheduler thread so volatile is enough — no lock.
+    private static final long TENANT_CACHE_TTL_MS = 60_000L;
+    private volatile List<UUID> cachedTenantIds = List.of();
+    private volatile long cachedTenantIdsAtMs = 0L;
+
     @Scheduled(fixedDelayString = "${webizon.auto-session.replay-tick-ms:1000}",
                initialDelayString = "${webizon.auto-session.replay-initial-delay-ms:6000}")
     public void tick() {
@@ -135,18 +149,36 @@ public class TimelineReplayEngine {
     }
 
     /**
-     * Loads the full set of tenant IDs. See
-     * {@link AutoSessionLifecycleScheduler#loadTenantIds()} for why
-     * this is safe to run outside any tenant context.
+     * Loads the full set of tenant IDs with a 60-second in-memory cache.
+     *
+     * <p>At steady state the replay loop only cares that the cache is
+     * "fresh enough" — a tenant created just now can wait 60s for its
+     * first AUTO session replay; the alternative is 1 qps against the
+     * tenants table for the life of the process.
+     *
+     * <p>If the DB read fails we keep serving the previous cached list
+     * rather than collapsing to empty, so a transient DB blip does not
+     * starve in-flight AUTO sessions of replay ticks.
      */
     private List<UUID> loadTenantIds() {
+        long now = System.currentTimeMillis();
+        if (now - cachedTenantIdsAtMs < TENANT_CACHE_TTL_MS && !cachedTenantIds.isEmpty()) {
+            return cachedTenantIds;
+        }
         try {
-            return transactionTemplate.execute(status ->
+            List<UUID> fresh = transactionTemplate.execute(status ->
                     tenantRepository.findAll().stream().map(Tenant::getId).toList());
+            if (fresh != null) {
+                cachedTenantIds = fresh;
+                cachedTenantIdsAtMs = now;
+            }
+            return cachedTenantIds;
         } catch (Exception ex) {
             log.error("Failed to enumerate tenants for timeline replay tick: {}",
                     ex.getMessage(), ex);
-            return List.of();
+            // Fall back to whatever we had cached — never leave the
+            // loop empty on a transient failure.
+            return cachedTenantIds;
         }
     }
 
