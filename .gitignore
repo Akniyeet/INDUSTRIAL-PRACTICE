@@ -16,6 +16,10 @@
 .factorypath
 .apt_generated*/
 
+# Claude Code agent state
+.claude/
+**/.claude/
+
 # OS
 .DS_Store
 Thumbs.db
