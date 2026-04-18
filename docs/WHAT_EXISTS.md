@@ -15,8 +15,37 @@
 | Жобаны іске қосу, Docker, URL-дер | [ONBOARDING.md](./ONBOARDING.md) |
 | Жүйе архитектурасы, модульдер, DB | [ARCHITECTURE.md](./ARCHITECTURE.md) |
 | Auth flow — login, Google, OTP | [AUTH.md](./AUTH.md) |
+| Google OAuth (кіру/тіркелу) setup | [runbooks/google-oauth-setup.md](./runbooks/google-oauth-setup.md) |
 | Барлық API endpoint-тар | [API.md](./API.md) |
 | Соңғы өзгерістер тарихы | [CHANGELOG.md](./CHANGELOG.md) |
+
+---
+
+## 🔧 ӘРБІР МАШИНАДА ҚОЛМЕН ОРНАТУ КЕРЕК
+
+> **Маңызды:** git-ке commit жасалмайтын құпиялар. Жаңа компьютерге clone жасаған соң осы баптауларды қолмен енгіз.
+
+| Не | Қай жерде сақталады | Қайдан алу керек | Runbook |
+|----|---------------------|-------------------|---------|
+| `GOOGLE_CLIENT_ID` | `.env` (gitignored) | Google Cloud Console project `812805454769` | [google-oauth-setup.md](./runbooks/google-oauth-setup.md) |
+| `GOOGLE_CLIENT_SECRET` | `.env` (gitignored) | Google Cloud Console → OAuth Client → Secret | [google-oauth-setup.md](./runbooks/google-oauth-setup.md) |
+| Gmail SMTP App Password | `.env` `SMTP_PASSWORD` | Google аккаунт → 2FA → App passwords | (TODO: smtp-setup.md) |
+| Anthropic API Key | `.env` `ANTHROPIC_API_KEY` | https://console.anthropic.com | (TODO: ai-setup.md) |
+| CENTRIFUGO_TOKEN_HMAC_SECRET | `.env` | ≥32 символ, кез келген рандом | [google-oauth-setup.md §4.3](./runbooks/google-oauth-setup.md) |
+| KEYCLOAK_ADMIN_PASSWORD | `.env` | Prod-та күшті пароль, dev-те `admin` | [ONBOARDING.md](./ONBOARDING.md) |
+
+**Қысқаша жаңа машинаға онбординг (Mac, жаңа Windows, CI):**
+
+```bash
+git clone https://gitlab.com/webizon365/webizon.git
+cd webizon
+cp .env.example .env
+# .env-ті аш, жоғарыдағы кестедегі құпияларды толтыр
+docker compose up -d
+# http://localhost:3000/auth/sign-in аш → «Войти через Google» тексер
+```
+
+Толық детальдер: [runbooks/google-oauth-setup.md](./runbooks/google-oauth-setup.md).
 
 ---
 
