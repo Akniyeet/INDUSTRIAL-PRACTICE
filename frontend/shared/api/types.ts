@@ -116,6 +116,40 @@ export interface InviteCreateResponse {
 
 export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 
+/**
+ * A single "benefit" card in the admin Landing Builder.
+ *
+ * <p>The {@link icon} field is a short identifier (e.g. "sparkles",
+ * "rocket", "lightbulb") resolved by the public landing to a lucide
+ * component at render time — storing the name, not the SVG, keeps the
+ * JSON payload small and lets the frontend swap icon sets later.
+ */
+export interface LandingBenefit {
+  title: string
+  desc: string
+  icon: string
+}
+
+/** Single row of the "Программа эфира" timeline editor. */
+export interface LandingTimelineItem {
+  title: string
+  desc: string
+}
+
+/**
+ * "Лендинг Builder" freeform blob. Stored on the event row as JSONB
+ * so the shape can evolve without a migration. The current resolver
+ * ({@code PublicEventView}) and the public landing page both tolerate
+ * missing / empty fields: the sections simply don't render.
+ */
+export interface LandingConfig {
+  benefitsTitle?: string
+  benefits?: LandingBenefit[]
+  timelineTitle?: string
+  timelineSubtitle?: string
+  timeline?: LandingTimelineItem[]
+}
+
 export interface EventResponse {
   id: UUID
   slug: string
@@ -131,6 +165,7 @@ export interface EventResponse {
   createdAt: ISODate
   updatedAt: ISODate
   version: number
+  landingConfig: LandingConfig
 }
 
 export interface EventCreateRequest {
@@ -142,6 +177,7 @@ export interface EventCreateRequest {
   coverImageUrl?: string
   timezone?: string
   language?: string
+  landingConfig?: LandingConfig
 }
 
 export type EventUpdateRequest = Partial<Omit<EventCreateRequest, 'slug'>>
@@ -212,6 +248,7 @@ export interface PublicEventView {
   coverImageUrl: string | null
   timezone: string | null
   language: string | null
+  landingConfig: LandingConfig
 }
 
 export interface PublicSessionView {

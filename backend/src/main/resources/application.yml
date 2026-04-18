@@ -132,7 +132,15 @@ webizon:
 
   minio:
     endpoint: ${WEBIZON_MINIO_ENDPOINT:http://localhost:9000}
-    public-endpoint: ${WEBIZON_MINIO_PUBLIC_ENDPOINT:http://localhost:9002}
+    # public-endpoint is the URL the BROWSER uses to upload files directly to MinIO.
+    # S3 V4 signatures bind the Host header, so the same hostname must be reachable
+    # from both the backend (to sign + call getBucketRegion) and the browser (to PUT).
+    #
+    # Local Docker:      http://host.docker.internal:9010
+    #   → Docker Desktop adds this to the OS hosts file; containers also resolve it.
+    # Local IDE (no Docker): http://localhost:9010
+    # Production:        https://storage.webizon.kz  (real CDN domain, no Docker magic)
+    public-endpoint: ${WEBIZON_MINIO_PUBLIC_ENDPOINT:http://localhost:9010}
     access-key: ${WEBIZON_MINIO_ACCESS_KEY:minioadmin}
     secret-key: ${WEBIZON_MINIO_SECRET_KEY:minioadmin}
     buckets:

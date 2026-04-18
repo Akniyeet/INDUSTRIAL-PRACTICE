@@ -270,12 +270,21 @@ services:
       WEBIZON_CENTRIFUGO_TOKEN_HMAC_SECRET: ${CENTRIFUGO_TOKEN_HMAC_SECRET:-dev_hmac_secret_change_me}
       WEBIZON_CLICKHOUSE_URL: jdbc:clickhouse://clickhouse:8123/${CLICKHOUSE_DB:-webizon_analytics}
       WEBIZON_MINIO_ENDPOINT: http://minio:9000
-      WEBIZON_MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9002}
+      # Public endpoint must use host.docker.internal so it is reachable from both
+      # the backend container (MinIO SDK getBucketRegion call) AND the browser
+      # (direct S3 PUT). host.docker.internal resolves to the host machine on
+      # Docker Desktop; extra_hosts below ensures Linux Docker Engine also resolves it.
+      # Production: override with MINIO_PUBLIC_ENDPOINT=https://storage.webizon.kz
+      WEBIZON_MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://host.docker.internal:9010}
       WEBIZON_MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       WEBIZON_MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8180/realms/webizon
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8180/realms/webizon/protocol/openid-connect/certs
       WEBIZON_CORS_ALLOWED_ORIGINS: http://localhost:3001
+    # Makes host.docker.internal resolve on Linux Docker Engine (Docker Desktop
+    # already provides this; host-gateway = host machine IP in Docker Compose).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8081:8080"
     depends_on:

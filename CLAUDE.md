@@ -769,6 +769,28 @@ This spins up:
 - Dev data is seeded via Flyway migrations with `profile = dev`
 - Environment variables live in `.env` (committed as `.env.example`, ignored as `.env`)
 
+### MinIO Presigned URL — Split-Horizon Hostname Rule (CRITICAL)
+
+S3 V4 signatures bind the `Host` header into the canonical request at signing time.
+The **same hostname** must therefore be reachable from two different contexts:
+
+| Context | Must reach | Why |
+|---------|-----------|-----|
+| Backend Docker container | `MINIO_PUBLIC_ENDPOINT` host | SDK calls `getBucketRegion()` before signing |
+| Browser (user's machine) | `MINIO_PUBLIC_ENDPOINT` host | Actual file PUT uses the presigned URL |
+
+**The rule: `MINIO_PUBLIC_ENDPOINT` must resolve to MinIO from BOTH contexts.**
+
+| Environment | Correct value | Why |
+|-------------|--------------|-----|
+| Local Docker Desktop (Win/Mac) | `http://host.docker.internal:9010` | Docker Desktop adds this to OS hosts; containers resolve it via `extra_hosts: host-gateway` |
+| Local IDE (no Docker) | `http://localhost:9010` | Direct access, no container boundary |
+| Production / Staging | `https://storage.webizon.kz` | Real domain, resolvable everywhere |
+
+**Never use `http://localhost:PORT` as `MINIO_PUBLIC_ENDPOINT` inside Docker** — `localhost` inside a container is the container itself, not the host machine.
+
+The `internalMinioClient` (for `statObject`, `removeObject`) always uses `http://minio:9000` (Docker-internal). This never changes.
+
 ---
 
 ## 20. Documentation Discipline

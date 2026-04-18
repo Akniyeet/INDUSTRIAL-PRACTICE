@@ -3,6 +3,7 @@ package com.webizon.storage.config;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
+import io.minio.SetBucketPolicyArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -94,6 +95,12 @@ public class MinioClientConfig {
             ensureBucket(b.ctaFiles());
             ensureBucket(b.recordings());
             ensureBucket(b.invoices());
+            // Cover images are public-by-design (the landing page is
+            // unauthenticated) so we grant anonymous read on the
+            // covers bucket. Without this the browser would need a
+            // presigned URL whose signature expires 15 minutes after
+            // upload, breaking the landing page every time.
+            makePublicReadOnly(b.covers());
         }
 
         private void ensureBucket(String bucket) {
@@ -108,6 +115,32 @@ public class MinioClientConfig {
                 }
             } catch (Exception ex) {
                 log.warn("Failed to ensure MinIO bucket {}: {}", bucket, ex.getMessage());
+            }
+        }
+
+        /**
+         * Grant anonymous GET permission on every object in the bucket.
+         * Used for buckets whose contents are legitimately public
+         * (cover images shown on landing pages). Idempotent — safe to
+         * re-apply on every startup.
+         */
+        private void makePublicReadOnly(String bucket) {
+            String policy = "{"
+                    + "\"Version\":\"2012-10-17\","
+                    + "\"Statement\":[{"
+                    + "\"Effect\":\"Allow\","
+                    + "\"Principal\":{\"AWS\":[\"*\"]},"
+                    + "\"Action\":[\"s3:GetObject\"],"
+                    + "\"Resource\":[\"arn:aws:s3:::" + bucket + "/*\"]"
+                    + "}]}";
+            try {
+                internalClient.setBucketPolicy(SetBucketPolicyArgs.builder()
+                        .bucket(bucket)
+                        .config(policy)
+                        .build());
+                log.info("MinIO bucket {} set to public-read", bucket);
+            } catch (Exception ex) {
+                log.warn("Failed to set public-read policy on {}: {}", bucket, ex.getMessage());
             }
         }
     }

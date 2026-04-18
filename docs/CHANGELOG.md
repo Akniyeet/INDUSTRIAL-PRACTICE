@@ -17,6 +17,49 @@
 
 ---
 
+## 2026-04-18
+
+### Public Event Landing — Broadcast-Universe Polish + End-to-End Landing Builder
+**Не өзгерді:** `/e/{tenant}/{slug}` беті негізгі маркетинг лендингімен көрнекі тепе-теңдікке келді. Админдік "Лендинг Builder" (Step 5) енді шынымен жұмыс істейді — әуелі DB-ден UI-ға дейін барлық қабат қосылды.
+
+**Себебі:**
+- Қолданушы хабарлады: админдік Step 5-те енгізілген Benefits/Timeline блоктары публикалық бетте ешқашан шықпаған (бар болғаны DB колонкасы мен entity өрісі — DTO/service/form/page бәрі өткізбеген).
+- Эфир брондау UX-і алдамшы болған: «Тіркелу» батырмасы басылған сайын есептегіш минус 1 болып кете беретін, пайдаланушы бір эфирді бірнеше рет брондайтындай әсер қалдыратын.
+- Хардкод fake chat жазулары (сайт «тірі» көрінсін деп) шынайы эфир туралы ештеңе түсіндірмейтін.
+
+**Лендинг өзгертулері (`frontend/app/pages/e/[tenant]/[slug]/index.vue`):**
+- **Hero cover card** маркетинг лендингімен 1:1: LIVE badge, viewer counter, 3 orbit metric chip, CTA banner (`Тегін чек-листті алу → Жүктеу`), chat-like feed, LogoMark бар footer bar.
+- **Rotating info feed** — айналмалы жазулар hardcode емес, `data.event` + `nextSession`-тан есептеледі: Басталуы, Ұзақтығы, Спикер, Орын саны, Тақырыбы, Форматы (LIVE/AUTO), Не туралы (description 1-абзацы). 2.5s сайын жаңарып, 3 жол көрініп тұрады.
+- **«Эфирге орын алу» button + reservation**: «Тіркелу» → «Эфирге орын алу». `hasReserved` localStorage-қа (`webizon:reserved:{tenant}:{slug}`) жазылады, бір рет басылғанда ғана есептегіш `−1` болады; кейіннен батырма emerald «Орын сізге броньдалды ✓» болып қайта басылмайды.
+- **«57 орын қалды» badge** енді button-мен егіз (`padding: 14px 22px; border-radius: 14px; font-size: 15px`).
+- **Benefits grid** — админ Step 5 толтырған кезде 3-бағанды responsive grid, әр картада lucide icon (22 icon picker), hover lift, gradient glow. Step 5 бос болса — рендерленбейді.
+- **Timeline** — numbered vertical list, violet-brand gradient spine, әр қадам карточкасы hover-да violet border-мен жанады.
+- **Closing CTA** («Эфирге қосылуға дайынсыз ба?») hero-мен бірдей: таймер + 37 орын badge + reservation state.
+- **Алынды:** «Жаңа эфир — жақын арада» fallback badge, «Тіркеліп, эфир басталғанда автоматты ескертпе…» абзацы, «Эфир туралы ақпарат» тақырыпша, fake chat pool.
+
+**Landing Builder end-to-end wiring (V016 негізінде толықтыру):**
+- `EventCreateRequest`, `EventUpdateRequest`, `EventResponse`, `PublicEventView` — `Map<String, Object> landingConfig` өрісі қосылды.
+- `EventService.create` — null-safe `landingConfig` entity-ге жазады (JSONB `NOT NULL` болғандықтан `null` ешқашан берілмейді).
+- `EventService.update` — PATCH семантикасы: `null` → «өзгертпе», empty map → «тазала».
+- `frontend/shared/api/types.ts` — `LandingBenefit`, `LandingTimelineItem`, `LandingConfig` type-тар; `EventResponse`/`EventCreateRequest`/`PublicEventView` кеңейтілді.
+- `frontend/app/components/admin/EventForm.vue` — `buildLandingConfig()` submit-те жібереді, edit режимінде `props.initial.landingConfig`-тан қайта жүктейді (`_iconOpen` сияқты UI-only өрістерді алып тастайды).
+
+**Файлдар (backend):**
+- `backend/.../events/api/dto/EventCreateRequest.java` — `Map<String, Object> landingConfig`
+- `backend/.../events/api/dto/EventUpdateRequest.java` — `Map<String, Object> landingConfig`
+- `backend/.../events/api/dto/EventResponse.java` — `landingConfig` + default `{}`
+- `backend/.../events/api/dto/PublicEventView.java` — `landingConfig` + default `{}`
+- `backend/.../events/service/EventService.java` — create/update null-safe mapping
+
+**Файлдар (frontend):**
+- `frontend/shared/api/types.ts` — 3 жаңа type + 2 interface кеңейту
+- `frontend/app/components/admin/EventForm.vue` — Step 5 preload + submit
+- `frontend/app/pages/e/[tenant]/[slug]/index.vue` — hero, info rotation, reservation, benefits, timeline, closing CTA
+
+**Документация:** `docs/specs/public-landing.md` — толық сипаттама: data flow, JSON shape, admin form, public rendering, reservation flow, backend contract, file map.
+
+---
+
 ## 2026-04-16
 
 ### Password Reset Flow — Email OTP

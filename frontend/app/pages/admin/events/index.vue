@@ -138,7 +138,14 @@ const filteredEvents = computed(() => {
 // ---------------------------------------------------------------------------
 function getEventUrl(ev: EventResponse): string {
   const slug = (ev as any).slug ?? `event-${ev.id}`
-  const tenantSlug = auth.tenantSlug ?? 'demo'
+  // Never fall back to a hardcoded tenant slug — that produces a
+  // /e/demo/... URL that the resolver rightly rejects as UNAVAILABLE.
+  // If the auth store has not been populated yet (e.g. page loaded before
+  // bootstrap completed) we fail loud with '#' so the user sees a broken
+  // link rather than an unrelated landing page that claims the event
+  // does not exist.
+  const tenantSlug = auth.tenantSlug
+  if (!tenantSlug) return '#'
   return `${window?.location?.origin ?? ''}/e/${tenantSlug}/${slug}`
 }
 
