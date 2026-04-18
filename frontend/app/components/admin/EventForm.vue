@@ -56,16 +56,23 @@ const currentStep = ref(1)
 const maxVisited = ref(1)
 
 function goTo(step: number) {
-  if (step >= 1 && step <= 6 && step <= maxVisited.value + 1) {
-    currentStep.value = step
-    if (step > maxVisited.value) maxVisited.value = step
-  }
+  if (step < 1 || step > 6 || step > maxVisited.value + 1) return
+  // Moving forward requires the current step to validate first.
+  // Moving backward is always allowed so the user can fix earlier steps.
+  if (step > currentStep.value && !validateStep(currentStep.value)) return
+  currentStep.value = step
+  if (step > maxVisited.value) maxVisited.value = step
 }
 function next() {
-  if (currentStep.value === 1 && !validateStep1()) return
-  if (currentStep.value < 6) goTo(currentStep.value + 1)
+  if (!validateStep(currentStep.value)) return
+  if (currentStep.value < 6) {
+    currentStep.value += 1
+    if (currentStep.value > maxVisited.value) maxVisited.value = currentStep.value
+  }
 }
-function prev() { if (currentStep.value > 1) goTo(currentStep.value - 1) }
+function prev() {
+  if (currentStep.value > 1) currentStep.value -= 1
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FORM STATE
@@ -251,14 +258,28 @@ function removeCover() {
   coverImageUrl.value = ''
 }
 
-function validateStep1(): boolean {
-  for (const k of Object.keys(errors)) delete errors[k]
-  if (!title.value.trim()) errors.title = 'Обязательное поле'
-  if (props.mode === 'create' && slug.value && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.value))
-    errors.slug = 'Только латинские буквы, цифры и дефис'
-  const valid = Object.keys(errors).length === 0
-  if (!valid) toast.warning('Заполните обязательные поля')
-  return valid
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+function validateStep(n: number): boolean {
+  // Only clear errors for fields owned by the current step so that
+  // pending red highlights on other steps stay visible until fixed.
+  const stepFields: Record<number, string[]> = {
+    1: ['title'],
+    4: ['slug'],
+  }
+  for (const f of stepFields[n] ?? []) delete errors[f]
+
+  if (n === 1) {
+    if (!title.value.trim()) errors.title = 'Обязательное поле'
+  }
+  if (n === 4 && props.mode === 'create') {
+    const s = slug.value.trim()
+    if (!s) errors.slug = 'Обязательное поле'
+    else if (s.length < 3) errors.slug = 'Минимум 3 символа'
+    else if (!SLUG_PATTERN.test(s)) errors.slug = 'Только латинские буквы, цифры и дефис'
+  }
+
+  return (stepFields[n] ?? []).every(f => !errors[f])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -287,11 +308,11 @@ function toggleCta(i: number) { ctas.value[i].collapsed = !ctas.value[i].collaps
 // ═══════════════════════════════════════════════════════════════════════════
 const eventUrl = computed(() => {
   const s = slug.value || 'my-event'
-  // Use the user's actual tenant slug — a 'demo' fallback produces a
-  // URL that resolves to UNAVAILABLE on the public endpoint.
-  const t = auth.tenantSlug
-  if (!t) return ''
-  return `${typeof window !== 'undefined' ? window.location.origin : ''}/e/${t}/${s}`
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  // Tenant slug arrives from /auth/bootstrap. If the cached session predates
+  // the workspace row, show a placeholder so the field is never empty.
+  const t = auth.tenantSlug || '{workspace}'
+  return `${origin}/e/${t}/${s}`
 })
 
 function copyEventUrl() {
@@ -443,8 +464,10 @@ async function onSubmit() {
     const apiErr = err as { errors?: Record<string, string>; title?: string; detail?: string }
     if (apiErr.errors && Object.keys(apiErr.errors).length > 0) {
       for (const [field, msg] of Object.entries(apiErr.errors)) errors[field] = msg
-      currentStep.value = 1
-      toast.warning('Проверьте заполненные поля')
+      // Jump to the step that owns the first failing field so the user sees the red input.
+      const fieldToStep: Record<string, number> = { title: 1, slug: 4 }
+      const target = Object.keys(apiErr.errors).map(f => fieldToStep[f]).find(s => s !== undefined)
+      if (target) currentStep.value = target
     } else {
       toast.error(apiErr.title ?? 'Ошибка', apiErr.detail ?? 'Не удалось сохранить мероприятие')
     }
@@ -455,7 +478,7 @@ async function onSubmit() {
 <template>
   <div>
     <!-- ═══ Stepper ══════════════════════════════════════════════════════ -->
-    <div class="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="mb-8">
       <!-- Icon + connector row -->
       <div class="flex items-center">
         <template v-for="(step, i) in steps" :key="step.id">

@@ -16,8 +16,6 @@
  * wires them up with a tidy, restrained layout that matches the rest of the
  * admin UI.
  */
-import { ChevronRight } from 'lucide-vue-next'
-
 defineProps<{
   title: string
   subtitle?: string
@@ -28,34 +26,6 @@ defineProps<{
 <template>
   <header class="mb-6 flex flex-col gap-3 border-b border-slate-200/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
     <div class="min-w-0">
-      <!-- Breadcrumbs -->
-      <nav
-        v-if="breadcrumbs && breadcrumbs.length"
-        class="mb-2 flex items-center gap-1 text-xs text-slate-500"
-        aria-label="Breadcrumb"
-      >
-        <template v-for="(crumb, i) in breadcrumbs" :key="i">
-          <NuxtLink
-            v-if="crumb.to && i < breadcrumbs.length - 1"
-            :to="crumb.to"
-            class="rounded px-1 py-0.5 font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-          >
-            {{ crumb.label }}
-          </NuxtLink>
-          <span
-            v-else
-            class="px-1 py-0.5"
-            :class="i === breadcrumbs.length - 1 ? 'font-semibold text-slate-700' : 'text-slate-500'"
-          >
-            {{ crumb.label }}
-          </span>
-          <ChevronRight
-            v-if="i < breadcrumbs.length - 1"
-            class="h-3 w-3 shrink-0 text-slate-300"
-          />
-        </template>
-      </nav>
-
       <!-- Title -->
       <h1 class="truncate text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">
         {{ title }}

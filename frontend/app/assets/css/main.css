@@ -55,7 +55,7 @@
     @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900
            placeholder:text-slate-400
            transition-colors
-           focus:border-brand-500 focus:ring-1 focus:ring-brand-500
+           focus:border-brand-500 focus:outline-none focus:ring-0
            disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed;
   }
 
@@ -71,7 +71,7 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 15-6-6-6 6'/%3E%3C/svg%3E");
   }
   .input-error {
-    @apply border-danger-500 focus:border-danger-500 focus:ring-danger-500;
+    @apply border-danger-500 focus:border-danger-500;
   }
 
   /* ----- Field wrappers ------------------------------------------------- */

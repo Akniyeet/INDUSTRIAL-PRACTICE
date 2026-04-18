@@ -135,7 +135,7 @@
         {
           "authenticator": "idp-review-profile",
           "authenticatorFlow": false,
-          "requirement": "REQUIRED",
+          "requirement": "DISABLED",
           "priority": 0,
           "autheticatorFlow": false
         },
@@ -188,7 +188,7 @@
         {
           "authenticator": "idp-confirm-link",
           "authenticatorFlow": false,
-          "requirement": "REQUIRED",
+          "requirement": "DISABLED",
           "priority": 0,
           "autheticatorFlow": false
         },
@@ -284,6 +284,7 @@
       "authenticateByDefault": false,
       "linkOnly": false,
       "firstBrokerLoginFlowAlias": "webizon-first-broker-login",
+      "updateProfileFirstLoginMode": "off",
       "config": {
         "clientId": "${env.GOOGLE_CLIENT_ID:CONFIGURE_ME}",
         "clientSecret": "${env.GOOGLE_CLIENT_SECRET:CONFIGURE_ME}",
@@ -363,8 +364,12 @@
           "temporary": false
         }
       ],
+      "attributes": {
+        "tenant_id": ["11111111-1111-1111-1111-111111111111"]
+      },
       "realmRoles": [
-        "platform_admin"
+        "platform_admin",
+        "tenant_owner"
       ]
     }
   ]

@@ -17,6 +17,92 @@
 
 ---
 
+## 2026-04-19 — Admin: Event wizard, tenant bootstrap, UI polish
+
+### Step-aware валидация + форма focus жалғыз сызық
+**Не өзгерді:** Event Wizard (6 қадам) әр қадамда міндетті өрістер толтырылмаса, келесі қадамға өткізбейді — міндетті өрістер қызыл болып белгіленеді. Бұрын валидация тек бірінші қадамда және соңғы submit кезінде («Проверьте заполненные поля» toast) жүретін, қолданушы 6-қадамға келіп қана проблема жайлы білетін. Сонымен қатар фокустағы `<input>` / `<textarea>` / `<select>` енді екі сызық емес, **бір** линияны ғана көрсетеді (бұрын border + ring қабаттасып тұрды).
+
+**Шешімі:**
+1. `validateStep(n)` — қадамға-спецификалық валидатор: қадам 1 → `title`; қадам 4 → `slug` (міндетті, мин 3 символ, `[a-z0-9-]` pattern, create mode ғана).
+2. `goTo(step)` — алға жылжу кезінде қазіргі қадамды валидаттайды, артқа жылжу еркін.
+3. `next()` — тек қазіргі қадам валидті болғанда ғана келесіге өтеді.
+4. Submit кезіндегі backend validation error-ы енді дұрыс қадамға секіртеді: `title` → step 1, `slug` → step 4.
+5. `toast.warning('Заполните обязательные поля')` / `toast.warning('Проверьте заполненные поля')` жойылды — inline қызыл өрістер жеткілікті сигнал.
+6. `input-base` стилі: `focus:ring-1 focus:ring-brand-500` → `focus:outline-none focus:ring-0`. `focus:border-brand-500` қалды — бір ғана түсті сызық.
+
+**Файлдар:**
+- `frontend/app/components/admin/EventForm.vue` — validateStep, goTo, next, onSubmit
+- `frontend/app/assets/css/main.css` — input-base, input-error focus styles
+
+### Admin chrome: breadcrumb + wizard frame алынды
+**Не өзгерді:** Admin беттеріндегі `Главная / Мероприятия / Новое` breadcrumb жолы, "Новое мероприятие — Соберите лендинг..." hero panel, және wizard-тың сыртқы `rounded-2xl border ...` frame-і алынды.
+
+**Себебі:** Қолданушы минималистік chrome қалайды — әр қадам өзі UiCard-қа салынған, сыртқы frame артық көрінетін.
+
+**Файлдар:**
+- `frontend/app/components/admin/PageHeader.vue` — breadcrumb блогы жойылды (prop сақталды, backward compat)
+- `frontend/app/pages/admin/events/create.vue` — PageHeader + hero div жойылды
+- `frontend/app/components/admin/EventForm.vue` — stepper wrapper div-індегі `rounded-2xl border ... shadow-sm` жойылды (line 458)
+
+### Dev workspace seed (V022)
+**Не өзгерді:** Fresh clone-да `webizon365@gmail.com` кірген кезде `GET /api/v1/events` → 403 Forbidden қайтармайды. Seed admin енді `webizon` workspace-нің `TENANT_OWNER`-і ретінде автоматты байланысады.
+
+**Себебі:** Backend `@PreAuthorize("hasAnyRole('TENANT_OWNER', ...)")` talап етеді. Бастапқыда user тек `platform_admin` болатын, `tenant_users` жазбасы жоқ болатындықтан tenant-scoped endpoint-тер жабық.
+
+**Шешімі:**
+1. Realm JSON-дағы `webizon365@gmail.com` user-ге `tenant_owner` realm role + `tenant_id` attribute (`11111111-1111-1111-1111-111111111111`) қосылды — JWT-да `tenant_id` claim ретінде шығады.
+2. Flyway `V022__seed_dev_workspace.sql` — `tenants` + `tenant_users` жазбаларын idempotently құрады.
+3. Keycloak Declarative User Profile-ға `tenant_id` attribute-і қосылды (`unmanagedAttributePolicy=None` оны drop-тап тастайтын).
+
+**Wizard-тағы "Публичная ссылка":** `eventUrl` computed — `auth.tenantSlug` жоқ болғанда `{workspace}` fallback көрсетеді, бос жол емес.
+
+**Файлдар:**
+- `backend/src/main/resources/db/migration/V022__seed_dev_workspace.sql` (жаңа)
+- `infra/keycloak/import/webizon-realm.json` — seed admin attributes + realmRoles
+- `frontend/app/components/admin/EventForm.vue` — eventUrl computed fallback
+
+**Runtime верификация:**
+- `GET /api/v1/events` → 200 ✅ (empty content)
+- JWT claims: `tenant_id=11111111-...`, `role=['tenant_owner', 'platform_admin']` ✅
+- Wizard step 4 "Публичная ссылка" → `http://localhost:3000/e/webizon/my-event` көрсетеді ✅
+
+---
+
+## 2026-04-19 — Auth: Google OAuth account linking автоматтандырылды
+
+### "Account already exists" экраны толық жойылды (trustEmail негізінде auto-link)
+**Не өзгерді:** Google IDP-мен кірген кезде, егер email-ге сәйкес локальды пайдаланушы бар болса, Keycloak "Account already exists — Review profile / Add to existing account" экранын көрсетпейді. Енді автоматты түрде email бойынша сәйкес есептік жазбаға байланыстырылады, қолданушыға қосымша қадам жасаудың қажеті жоқ.
+
+**Симптом (bug):** Дев-те `webizon365@gmail.com` пароль арқылы тіркелген. Сол email Google OAuth арқылы кірген кезде Keycloak "Account already exists" диалогын көрсетті — UX бұзылды.
+
+**Түбір себеп:** `webizon-first-broker-login` flow-да:
+1. `idp-review-profile` (REQUIRED) — әрқашан профиль шолу формасын шығарды (updateProfileFirstLoginMode=on).
+2. `idp-confirm-link` (REQUIRED, "Handle Existing Account" subflow ішінде) — `trustEmail: true` бар бола тура, мәжбүрлі түрде "Review profile / Add to existing" диалогын шығарды.
+
+Екеуі де `trustEmail: true` + Google-дан email_verified=true келгенде де автоматты байланыстырудың алдын алды.
+
+**Шешімі:**
+1. `idp-review-profile` execution → **DISABLED** (Review Profile мүлде көрсетілмейді).
+2. `idp-confirm-link` execution ("Handle Existing Account" subflow ішіндегі) → **DISABLED**.
+3. Google IDP-дағы `updateProfileFirstLoginMode` → **"off"**.
+
+Нәтижесінде жаңа flow:
+- Google → `idp-create-user-if-unique` (email бар → fail) → Handle Existing Account subflow → `idp-confirm-link` (DISABLED, skip) → `idp-email-verification` (`trustEmail`+`emailVerified` бар → instant auto-link, email жіберілмейді) → access token.
+
+**Қауіпсіздік:** `trustEmail: true` тек email-ды IdP provider растаған (`email_verified` claim) жағдайда ғана auto-link-ке рұқсат етеді. Google OIDC `email_verified` әрдайым дұрыс береді, сондықтан account takeover мүмкіндігі жоқ. Spoofed email-мен басқа IDP қосқан жағдайда, сол IDP-ның `trustEmail`-ын false етіп қою керек.
+
+**Файлдар:**
+- `infra/keycloak/import/webizon-realm.json` — `idp-review-profile` және `idp-confirm-link` executions requirement-ы `REQUIRED` → `DISABLED`; Google IDP-ға `"updateProfileFirstLoginMode": "off"` қосылды. Бұл bootstrap import үшін — volume жаңадан жасалғанда дұрыс жасалады.
+- Live Keycloak конфигурациясы да `kcadm` арқылы жаңартылды (volume жоғалған жоқ, қолданыстағы контейнер бірден дұрыс болады).
+
+**Runtime верификация:**
+- `webizon365@gmail.com` пароль логин → 200 ✅ (пароль `Admin123` етіп қайта орнатылды — дев-те бірыңғай)
+- Google OAuth flow → "Account already exists" диалогы КӨРСЕТІЛМЕЙДІ → бірден кабинетке кіреді ✅
+
+**Болашақта қайталанбас үшін:** Волюм reset жасалған кезде (`docker volume rm webizon_keycloak_data`), realm JSON-дағы өзгерістер автоматты импортталады. Жаңа IDP қосылғанда (Facebook, Apple, т.б.) — әрқайсысына `updateProfileFirstLoginMode=off` қою міндетті, егер сол провайдер `email_verified` дұрыс қайтарса. Custom flow сындырылмайды — тек executions-тың requirement-ы өзгертілді, flow құрылымы сол қалпында.
+
+---
+
 ## 2026-04-18 (түнгі айналым) — Docs
 
 ### Google OAuth runbook + per-machine secrets документациясы
