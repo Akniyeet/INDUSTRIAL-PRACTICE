@@ -8,10 +8,12 @@
 
 | Сен іздеп жатқан нәрсе | Қай файлда |
 |------------------------|-----------|
+| **Жаңа AI агент немесе маман — бірінші осыны оқы** | → **[AGENT_HANDOFF.md](./AGENT_HANDOFF.md)** |
 | Жобаны іске қосу, Docker, URL-дер, тест аккаунттар | → **[ONBOARDING.md](./ONBOARDING.md)** |
 | Не бар, не жасалған, қайта жасама тізімі | → **[WHAT_EXISTS.md](./WHAT_EXISTS.md)** |
 | Жүйе архитектурасы, сервистер, DB миграциялар | → **[ARCHITECTURE.md](./ARCHITECTURE.md)** |
 | Авторизация — login, Google OAuth, token refresh | → **[AUTH.md](./AUTH.md)** |
+| Google OAuth-ты дөңгелектеуге арналған runbook | → **[runbooks/google-oauth-setup.md](./runbooks/google-oauth-setup.md)** |
 | Барлық API endpoint-тар | → **[API.md](./API.md)** |
 | Соңғы өзгерістер, bug fix-тер, не өзгерді | → **[CHANGELOG.md](./CHANGELOG.md)** |
 

@@ -17,6 +17,32 @@
 
 ---
 
+## 2026-04-18 (түнгі айналым) — Docs
+
+### Google OAuth runbook + per-machine secrets документациясы
+**Не өзгерді:** Жаңа компьютерге (Mac, CI, fresh Windows) clone жасалғаннан кейін sign-up/sign-in Google арқылы жұмыс істемеу мәселесіне жауап — толық runbook.
+
+**Себебі:** Дев Google Cloud Console project (`812805454769` = «Webizon-365») бұрын жасалған, Client ID + Secret `.env`-ке қойылған. Бірақ басқа машинада `.env` бос болса, қайдан табуды ешкім білмей қалды. Жаңа агент Mac-те ізін таба алмай қалды.
+
+**Қосылған файлдар:**
+- `docs/runbooks/google-oauth-setup.md` (жаңа) — 9 бөлімді runbook: flow диаграммасы (frontend → Keycloak → Google), Google Cloud Console-да жаңа client жасау (prod үшін), credentials қай жерде сақталады (Windows `.env`, Google Cloud, password manager), жаңа машинаға setup checklist, prod deploy, 7 troubleshooting рецепт (redirect_uri_mismatch, invalid_client, CONFIGURE_ME, т.б.).
+- `docs/WHAT_EXISTS.md` (жаңартылды) — «🔧 ӘРБІР МАШИНАДА ҚОЛМЕН ОРНАТУ КЕРЕК» секциясы: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SMTP_PASSWORD`, `ANTHROPIC_API_KEY`, `CENTRIFUGO_TOKEN_HMAC_SECRET`, `KEYCLOAK_ADMIN_PASSWORD` — қайда сақталады + қайдан алу керек.
+- `.env.example` (жаңартылды) — Google секциясы runbook-қа сілтейді.
+
+**Қауіпсіздік:** Нақты Client Secret-тің өзі committed файлдарда жоқ — тек `GOCSPX-xxxx…` placeholder. Runbook readers Google Cloud Console-дан алу керектігін айтады.
+
+**Runtime верификация (Docker-де live):**
+- Email/password register → JWT 200 ✅
+- Email/password login → JWT 200 ✅
+- Bootstrap endpoint (protected) → User upsert в PostgreSQL ✅
+- Keycloak env: `GOOGLE_CLIENT_ID=812805454769-…`, Secret 35 chars loaded ✅
+- OAuth redirect chain: Frontend → Keycloak `/broker/google/login` → **`accounts.google.com/o/oauth2/v2/auth?client_id=812805454769-…`** ✅
+- Backend логтарда error жоқ ✅
+
+**Commit:** `09e2f5c` origin/master-ге пушталды.
+
+---
+
 ## 2026-04-18 (кешкі айналым)
 
 ### Backend Performance — P0 Bottleneck Fixes + V021 Hot-Path Indexes
