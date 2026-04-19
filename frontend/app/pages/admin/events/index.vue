@@ -6,7 +6,7 @@
  */
 import {
   Plus, RefreshCw, Copy, Check, Play, Square, Eye, BarChart3,
-  Edit3, ExternalLink, Archive, Calendar,
+  Edit3, ExternalLink, Archive, Calendar, Send,
 } from 'lucide-vue-next'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -27,6 +27,8 @@ const events = ref<EventResponse[]>([])
 const sessionsMap = ref<Record<string, SessionResponse[]>>({})
 const loading = ref(true)
 const copiedId = ref<string | null>(null)
+const publishTarget = ref<EventResponse | null>(null)
+const publishing = ref(false)
 
 async function refresh() {
   loading.value = true
@@ -169,6 +171,26 @@ async function goLive(ev: EventResponse) {
     toast.success('Эфир запущен!')
   } catch (e: any) {
     toast.error(e?.detail ?? 'Ошибка запуска эфира')
+  }
+}
+
+function publishEvent(ev: EventResponse) {
+  publishTarget.value = ev
+}
+
+async function confirmPublish() {
+  const ev = publishTarget.value
+  if (!ev) return
+  publishing.value = true
+  try {
+    const updated = await api.events.publish(ev.id)
+    events.value = events.value.map(e => e.id === ev.id ? { ...e, ...updated } : e)
+    toast.success('Мероприятие опубликовано')
+    publishTarget.value = null
+  } catch (e: any) {
+    toast.error(e?.detail ?? 'Ошибка публикации')
+  } finally {
+    publishing.value = false
   }
 }
 
@@ -318,7 +340,14 @@ function formatDate(iso: string) {
               <Square class="h-3.5 w-3.5" /> Завершить
             </button>
             <button
-              v-else-if="ev.status !== 'DRAFT'"
+              v-else-if="ev.status === 'DRAFT'"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 hover:shadow-brand-500/30"
+              @click.stop="publishEvent(ev)"
+            >
+              <Send class="h-3.5 w-3.5" /> Опубликовать
+            </button>
+            <button
+              v-else
               class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-600 hover:shadow-emerald-500/30"
               @click.stop="goLive(ev)"
             >
@@ -382,5 +411,23 @@ function formatDate(iso: string) {
         <p class="mt-1 text-sm text-slate-500">Создайте первое мероприятие, чтобы начать</p>
       </div>
     </div>
+
+    <UiModal
+      :model-value="!!publishTarget"
+      title="Опубликовать мероприятие?"
+      size="sm"
+      :closable="!publishing"
+      @update:model-value="(v) => { if (!v && !publishing) publishTarget = null }"
+    >
+      <p class="text-sm text-slate-600">
+        Лендинг
+        <span v-if="publishTarget" class="font-semibold text-slate-900">«{{ publishTarget.title }}»</span>
+        станет доступен публично по прямой ссылке. Вы сможете снова скрыть его в любой момент.
+      </p>
+      <template #footer>
+        <UiButton variant="ghost" :disabled="publishing" @click="publishTarget = null">Отмена</UiButton>
+        <UiButton :loading="publishing" @click="confirmPublish">Опубликовать</UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>

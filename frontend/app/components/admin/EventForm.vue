@@ -219,6 +219,8 @@ const COVER_MIN_H = 360
 const COVER_MAX_W = 4096
 const COVER_MAX_H = 4096
 
+const coverInput = ref<HTMLInputElement | null>(null)
+
 function onCoverDrop(e: DragEvent) {
   const file = e.dataTransfer?.files?.[0]
   if (file) setCoverFile(file)
@@ -618,7 +620,7 @@ async function onSubmit() {
               <div
                 v-if="!coverPreview && !coverImageUrl"
                 class="relative flex h-48 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-gradient-to-br from-slate-50 via-white to-brand-50/40 transition hover:border-brand-400 hover:from-brand-50/60 hover:to-violet-50/40"
-                @click="($refs.coverInput as HTMLInputElement)?.click()"
+                @click="coverInput?.click()"
                 @drop.prevent="onCoverDrop"
                 @dragover.prevent
               >
@@ -649,7 +651,7 @@ async function onSubmit() {
                   <X class="h-4 w-4" />
                 </button>
               </div>
-              <input ref="coverInput" type="file" class="hidden" accept="image/jpeg,image/png,image/webp" @change="onCoverSelect" />
+              <input ref="coverInput" type="file" class="hidden" accept="image/*" @change="onCoverSelect" />
             </div>
 
             <div>
