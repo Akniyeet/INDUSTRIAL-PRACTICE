@@ -1,0 +1,12 @@
+# Overrides for local development profile
+spring:
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    com.webizon: DEBUG
+    org.springframework.security: DEBUG

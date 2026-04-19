@@ -1,0 +1,156 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Webizon — GitLab CI/CD pipeline
+# ─────────────────────────────────────────────────────────────────────────
+#
+# Scope of this pipeline (intentionally minimal, will grow in phases):
+#
+#   1. backend-compile   → mvn -DskipTests compile  (fail fast on Java errors)
+#   2. frontend-install  → npm ci                   (verify lockfile integrity)
+#   3. frontend-build    → npm run build            (verify Nuxt builds clean)
+#   4. frontend-typecheck → npm run typecheck       (soft check, allowed to fail)
+#
+# Explicitly NOT in this file yet (add in follow-up MRs):
+#   • Integration tests (need Testcontainers + privileged runner)
+#   • Docker image build + push (needs runner creds + registry wiring)
+#   • Deploy stages (needs environment + k8s/cluster config)
+#
+# Duplicate-pipeline rule: the `workflow.rules` block below prevents GitLab
+# from creating both a "branch push" and a "merge request" pipeline when an
+# MR is open — without this we'd double-spend CI minutes on every push.
+# ─────────────────────────────────────────────────────────────────────────
+
+workflow:
+  rules:
+    # MR pipelines (richest context — has MR metadata for reports)
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Skip branch-push pipelines when an MR is already open for that branch
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    # Default branch pushes (always run — this is what gitlab.com shows as
+    # "repository status" for the project)
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    # Regular feature-branch pushes without an open MR yet
+    - if: $CI_COMMIT_BRANCH
+    # Tags (for releases)
+    - if: $CI_COMMIT_TAG
+
+stages:
+  - build
+
+# ─────────────────────────────────────────────────────────────────────────
+# Shared defaults
+# ─────────────────────────────────────────────────────────────────────────
+variables:
+  # Keep the Maven local repo inside the project dir so GitLab can cache it
+  # between runs — this is the officially-documented pattern for Maven CI.
+  MAVEN_OPTS: >-
+    -Dhttps.protocols=TLSv1.2
+    -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository
+    -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
+    -Dorg.slf4j.simpleLogger.showDateTime=true
+    -Djava.awt.headless=true
+  MAVEN_CLI_OPTS: >-
+    --batch-mode
+    --errors
+    --fail-at-end
+    --show-version
+    -DinstallAtEnd=true
+    -DdeployAtEnd=true
+  # Nuxt 4 build on GitLab runners needs a bit more headroom
+  NODE_OPTIONS: "--max-old-space-size=3072"
+  GIT_DEPTH: "20"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Backend — mvn compile (fast sanity check, no tests)
+# ─────────────────────────────────────────────────────────────────────────
+backend-compile:
+  stage: build
+  image: maven:3.9-eclipse-temurin-21
+  cache:
+    key:
+      files:
+        - backend/pom.xml
+    paths:
+      - .m2/repository
+    policy: pull-push
+  before_script:
+    - cd backend
+  script:
+    - mvn $MAVEN_CLI_OPTS -DskipTests clean compile
+  rules:
+    - changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+      when: on_success
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: on_success
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: on_success
+
+# ─────────────────────────────────────────────────────────────────────────
+# Frontend — npm ci + build (verifies lockfile and Nuxt output is clean)
+# ─────────────────────────────────────────────────────────────────────────
+frontend-build:
+  stage: build
+  image: node:20-alpine
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/node_modules
+    policy: pull-push
+  before_script:
+    - cd frontend
+    - node --version
+    - npm --version
+  script:
+    - npm ci --prefer-offline --no-audit --no-fund
+    - npm run build
+  artifacts:
+    paths:
+      - frontend/.output
+    expire_in: 1 day
+    when: on_success
+  rules:
+    - changes:
+        - frontend/**/*
+        - .gitlab-ci.yml
+      when: on_success
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: on_success
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: on_success
+
+# ─────────────────────────────────────────────────────────────────────────
+# Frontend — typecheck (soft — does not block merge while we tune the
+# strictness settings on the Nuxt 4 config)
+# ─────────────────────────────────────────────────────────────────────────
+frontend-typecheck:
+  stage: build
+  image: node:20-alpine
+  needs:
+    - job: frontend-build
+      optional: true
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/node_modules
+    policy: pull
+  before_script:
+    - cd frontend
+  script:
+    - npm ci --prefer-offline --no-audit --no-fund
+    - npm run typecheck || echo "typecheck soft-fail (non-blocking until strict mode is enabled)"
+  allow_failure: true
+  rules:
+    - changes:
+        - frontend/**/*
+        - .gitlab-ci.yml
+      when: on_success
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: on_success
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: on_success

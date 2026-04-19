@@ -1,0 +1,366 @@
+{
+  "realm": "webizon",
+  "enabled": true,
+  "displayName": "Webizon",
+  "displayNameHtml": "<div>Webizon</div>",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 30,
+  "defaultSignatureAlgorithm": "RS256",
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "accessTokenLifespan": 900,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "offlineSessionMaxLifespanEnabled": false,
+  "clientSessionIdleTimeout": 0,
+  "clientSessionMaxLifespan": 0,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+
+  "roles": {
+    "realm": [
+      { "name": "platform_admin", "description": "Webizon staff — full platform access" },
+      { "name": "tenant_owner", "description": "Tenant owner — full tenant access" },
+      { "name": "tenant_admin", "description": "Tenant admin — manages events and users within a tenant" },
+      { "name": "tenant_moderator", "description": "Live session moderator" },
+      { "name": "tenant_presenter", "description": "Session presenter/speaker" },
+      { "name": "participant", "description": "Regular webinar participant" }
+    ]
+  },
+
+  "groups": [
+    {
+      "name": "tenants"
+    }
+  ],
+
+  "clients": [
+    {
+      "clientId": "webizon-frontend",
+      "name": "Webizon Frontend",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev_client_secret",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:3000/auth/callback",
+        "http://localhost:3001/*",
+        "http://localhost:3001/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:3001"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "access.token.lifespan": "900"
+      },
+      "protocolMappers": [
+        {
+          "name": "profile_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "profile_id",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "role",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "false",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "role",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+
+  "authenticationFlows": [
+    {
+      "alias": "webizon-first-broker-login",
+      "description": "Actions taken after first broker login with identity provider account, which is not yet linked to any Keycloak account",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-review-profile",
+          "authenticatorFlow": false,
+          "requirement": "DISABLED",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "webizon-first-broker-login User creation or linking",
+          "requirement": "REQUIRED",
+          "priority": 1,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "webizon-first-broker-login User creation or linking",
+      "description": "",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-detect-existing-broker-user",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticator": "idp-auto-link",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticator": "idp-create-user-if-unique",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "webizon-first-broker-login Handle Existing Account",
+          "requirement": "ALTERNATIVE",
+          "priority": 30,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "webizon-first-broker-login Handle Existing Account",
+      "description": "",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-confirm-link",
+          "authenticatorFlow": false,
+          "requirement": "DISABLED",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "webizon-first-broker-login Account verification options",
+          "requirement": "REQUIRED",
+          "priority": 1,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "webizon-first-broker-login Account verification options",
+      "description": "",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-email-verification",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "webizon-first-broker-login Verify Existing Account by Re-authentication",
+          "requirement": "ALTERNATIVE",
+          "priority": 1,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "webizon-first-broker-login Verify Existing Account by Re-authentication",
+      "description": "",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticatorFlow": true,
+          "flowAlias": "webizon-first-broker-login First broker login - Conditional OTP",
+          "requirement": "CONDITIONAL",
+          "priority": 1,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "webizon-first-broker-login First broker login - Conditional OTP",
+      "description": "",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-user-configured",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 0,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 1,
+          "autheticatorFlow": false
+        }
+      ]
+    }
+  ],
+
+  "identityProviders": [
+    {
+      "alias": "google",
+      "displayName": "Google",
+      "providerId": "google",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "webizon-first-broker-login",
+      "updateProfileFirstLoginMode": "off",
+      "config": {
+        "clientId": "${env.GOOGLE_CLIENT_ID:CONFIGURE_ME}",
+        "clientSecret": "${env.GOOGLE_CLIENT_SECRET:CONFIGURE_ME}",
+        "defaultScope": "openid profile email",
+        "syncMode": "IMPORT",
+        "useJwksUrl": "true"
+      }
+    }
+  ],
+
+  "identityProviderMappers": [
+    {
+      "name": "google-email-mapper",
+      "identityProviderAlias": "google",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "user.attribute": "email",
+        "claim": "email"
+      }
+    },
+    {
+      "name": "google-firstname-mapper",
+      "identityProviderAlias": "google",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "user.attribute": "firstName",
+        "claim": "given_name"
+      }
+    },
+    {
+      "name": "google-lastname-mapper",
+      "identityProviderAlias": "google",
+      "identityProviderMapper": "oidc-user-attribute-idp-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "user.attribute": "lastName",
+        "claim": "family_name"
+      }
+    }
+  ],
+
+  "users": [
+    {
+      "username": "owner@demo-tenant.kz",
+      "email": "owner@demo-tenant.kz",
+      "firstName": "Demo",
+      "lastName": "Owner",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo123",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "tenant_id": ["00000000-0000-0000-0000-000000000001"]
+      },
+      "realmRoles": [
+        "tenant_owner"
+      ]
+    },
+    {
+      "username": "webizon365@gmail.com",
+      "email": "webizon365@gmail.com",
+      "firstName": "Webizon",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Astana01+",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "platform_admin",
+        "tenant_owner"
+      ]
+    }
+  ]
+}

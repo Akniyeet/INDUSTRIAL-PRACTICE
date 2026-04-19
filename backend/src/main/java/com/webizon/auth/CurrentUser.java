@@ -1,0 +1,116 @@
+package com.webizon.auth;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Static helpers for reading identity claims off the currently-authenticated
+ * JWT. Intentionally not a bean — the authentication is request-scoped and
+ * lives in the {@link SecurityContextHolder}.
+ *
+ * <p>Every getter throws {@link IllegalStateException} if there is no
+ * authenticated JWT; that's a routing bug (a protected endpoint was hit
+ * without auth) and should be impossible after {@code SecurityConfig}
+ * requires authentication on everything except the public whitelist.
+ */
+public final class CurrentUser {
+
+    private CurrentUser() {
+        throw new UnsupportedOperationException("utility class");
+    }
+
+    public static Jwt jwt() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            return jwtAuth.getToken();
+        }
+        throw new IllegalStateException("No authenticated JWT in SecurityContext");
+    }
+
+    public static Optional<Jwt> jwtOptional() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            return Optional.of(jwtAuth.getToken());
+        }
+        return Optional.empty();
+    }
+
+    /** Keycloak subject ({@code sub} claim). Stable for the lifetime of the user. */
+    public static UUID keycloakId() {
+        return UUID.fromString(jwt().getSubject());
+    }
+
+    public static String email() {
+        String email = jwt().getClaimAsString("email");
+        if (email == null || email.isBlank()) {
+            throw new IllegalStateException("JWT has no email claim");
+        }
+        return email;
+    }
+
+    public static boolean emailVerified() {
+        Boolean verified = jwt().getClaim("email_verified");
+        return verified != null && verified;
+    }
+
+    public static String fullName() {
+        String name = jwt().getClaimAsString("name");
+        if (name == null || name.isBlank()) {
+            String given = jwt().getClaimAsString("given_name");
+            String family = jwt().getClaimAsString("family_name");
+            if (given != null || family != null) {
+                return String.format("%s %s", given == null ? "" : given, family == null ? "" : family).trim();
+            }
+            return jwt().getClaimAsString("preferred_username");
+        }
+        return name;
+    }
+
+    /**
+     * Webizon profile id ({@code profile_id} claim). This is the
+     * canonical user identity inside the app — all chat, analytics,
+     * CRM, and moderation rows point at this UUID, never at the
+     * Keycloak subject.
+     *
+     * <p>Falls back to keycloak subject ({@code sub}) when the
+     * {@code profile_id} claim is absent — this happens when the
+     * Keycloak protocol mapper is not configured. The caller then
+     * receives the keycloak UUID which must be resolved to the
+     * application user id via {@code UserService.requireByKeycloakId}.
+     */
+    public static UUID profileId() {
+        String raw = jwt().getClaimAsString("profile_id");
+        if (raw == null || raw.isBlank()) {
+            // Fallback: return keycloak subject so at least the call doesn't crash.
+            // Controllers that need the real app user id should use
+            // UserService.requireByKeycloakId(keycloakId()) instead.
+            return keycloakId();
+        }
+        try {
+            return UUID.fromString(raw);
+        } catch (IllegalArgumentException ex) {
+            return keycloakId();
+        }
+    }
+
+    /** Single-role shortcut claim minted by our token customizer. */
+    public static String role() {
+        String raw = jwt().getClaimAsString("role");
+        return raw == null ? "" : raw;
+    }
+
+    public static Optional<UUID> tenantId() {
+        String raw = jwt().getClaimAsString("tenant_id");
+        if (raw == null || raw.isBlank()) return Optional.empty();
+        try {
+            return Optional.of(UUID.fromString(raw));
+        } catch (IllegalArgumentException ex) {
+            return Optional.empty();
+        }
+    }
+}

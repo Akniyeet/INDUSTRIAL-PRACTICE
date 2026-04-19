@@ -1,0 +1,23 @@
+# Test profile — containers inject real connection URLs via @DynamicPropertySource.
+# This file provides safe defaults for properties that Testcontainers doesn't override.
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none  # Flyway manages schema
+  flyway:
+    enabled: true
+    driver-class-name: org.postgresql.Driver
+  mail:
+    host: localhost
+    port: 25
+
+webizon:
+  centrifugo:
+    token-hmac-secret: test_secret_key_for_integration_tests_32x
+    api-url: http://localhost:8000/api
+
+logging:
+  level:
+    com.webizon: DEBUG
+    org.testcontainers: INFO

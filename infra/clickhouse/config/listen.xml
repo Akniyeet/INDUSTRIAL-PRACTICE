@@ -1,0 +1,4 @@
+<clickhouse>
+    <!-- Force IPv4-only listening to avoid IPv6 errors in Docker on Windows WSL2 -->
+    <listen_host>0.0.0.0</listen_host>
+</clickhouse>

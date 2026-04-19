@@ -1,0 +1,49 @@
+{
+  "name": "webizon-frontend",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Webizon — multi-tenant webinar SaaS (Nuxt 4 frontend)",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "dev": "nuxt dev --host 0.0.0.0 --port 3000",
+    "dev:preview": "nuxt dev --host 0.0.0.0 --port 3003",
+    "build": "nuxt build",
+    "start": "node .output/server/index.mjs",
+    "preview": "nuxt preview",
+    "generate": "nuxt generate",
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxt typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,vue,json,md}\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@headlessui/vue": "^1.7.23",
+    "@pinia/nuxt": "^0.11.3",
+    "@vueuse/core": "^14.2.1",
+    "@vueuse/nuxt": "^14.2.1",
+    "centrifuge": "^5.2.2",
+    "date-fns": "^4.1.0",
+    "lucide-vue-next": "^1.0.0",
+    "nuxt": "^4.4.2",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.11",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.15.2",
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "@types/node": "^22.7.4",
+    "eslint": "^9.11.1",
+    "prettier": "^3.3.3",
+    "sass": "^1.79.4",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.2",
+    "vue-tsc": "^3.2.6"
+  }
+}

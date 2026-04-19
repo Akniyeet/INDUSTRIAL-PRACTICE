@@ -1,0 +1,42 @@
+{
+  "token_hmac_secret_key": "6ec60d3ef75ef6fc9389c26d00e6703d304fca7de889120bfadbf6abaccad37b",
+  "admin_password": "admin",
+  "admin_secret": "dev_admin_secret_change_me",
+  "api_key": "dev_api_key_change_me",
+  "allowed_origins": [
+    "http://localhost:3000",
+    "http://localhost:8080"
+  ],
+  "admin": true,
+  "admin_web_path": "/",
+  "api": true,
+  "log_level": "info",
+  "health": true,
+  "prometheus": true,
+
+  "engine": "redis",
+  "redis_address": "redis:6379",
+  "redis_prefix": "webizon.centrifugo",
+
+  "client_presence_ttl": "60s",
+  "client_expired_close_delay": "25s",
+  "client_stale_close_delay": "25s",
+
+  "namespaces": [
+    {
+      "name": "tenant",
+      "presence": true,
+      "history_size": 50,
+      "history_ttl": "300s",
+      "recover": true,
+      "join_leave": false,
+      "force_recovery": true,
+      "protected": true
+    }
+  ],
+
+  "proxy_connect_endpoint": "",
+  "proxy_subscribe_endpoint": "",
+
+  "usage_stats_disable": true
+}
