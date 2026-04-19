@@ -1,5 +1,5 @@
 {
-  "token_hmac_secret_key": "dev_hmac_secret_change_me",
+  "token_hmac_secret_key": "6ec60d3ef75ef6fc9389c26d00e6703d304fca7de889120bfadbf6abaccad37b",
   "admin_password": "admin",
   "admin_secret": "dev_admin_secret_change_me",
   "api_key": "dev_api_key_change_me",
