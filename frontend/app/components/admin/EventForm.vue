@@ -207,9 +207,21 @@ function slugify(s: string) {
 
 watch(title, (v) => { if (!slugTouched && props.mode === 'create') slug.value = slugify(v) })
 
+// Cover constraints. Kept in lockstep with the backend's per-purpose
+// allow-list (StorageService.DEFAULTS[COVER]: 5 MB, JPEG/PNG/WEBP).
+// Dimensions are enforced client-side only — the backend has no pixel
+// check, but a 1×1 or 20000×20000 image would render as "broken" in
+// the listing card, so reject before upload with an explicit reason.
+const COVER_ACCEPT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
+const COVER_MAX_BYTES = 5 * 1024 * 1024
+const COVER_MIN_W = 640
+const COVER_MIN_H = 360
+const COVER_MAX_W = 4096
+const COVER_MAX_H = 4096
+
 function onCoverDrop(e: DragEvent) {
   const file = e.dataTransfer?.files?.[0]
-  if (file && file.type.startsWith('image/')) setCoverFile(file)
+  if (file) setCoverFile(file)
 }
 
 function onCoverSelect(e: Event) {
@@ -217,36 +229,83 @@ function onCoverSelect(e: Event) {
   if (file) setCoverFile(file)
 }
 
+function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => { URL.revokeObjectURL(url); resolve({ width: img.naturalWidth, height: img.naturalHeight }) }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Не удалось прочитать изображение. Файл повреждён или не является поддерживаемым форматом.')) }
+    img.src = url
+  })
+}
+
 async function setCoverFile(file: File) {
-  if (file.size > 5 * 1024 * 1024) { toast.error('Максимум 5 МБ'); return }
+  // Clear any stale state from a previous attempt so the UI truthfully
+  // reflects the new selection's fate.
+  if (coverPreview.value) { URL.revokeObjectURL(coverPreview.value); coverPreview.value = null }
+  coverFile.value = null
+
+  // 1. MIME type — iPhone HEIC/HEIF, AVIF, BMP, GIF all land here.
+  if (!COVER_ACCEPT_TYPES.includes(file.type as typeof COVER_ACCEPT_TYPES[number])) {
+    toast.error(`Неподдерживаемый формат (${file.type || 'неизвестный'}). Используйте JPEG, PNG или WEBP.`)
+    return
+  }
+
+  // 2. Byte size — hard cap matches backend, fail fast before network.
+  if (file.size > COVER_MAX_BYTES) {
+    toast.error(`Файл слишком большой (${(file.size / 1024 / 1024).toFixed(1)} МБ). Максимум 5 МБ.`)
+    return
+  }
+
+  // 3. Pixel dimensions — decoded locally via HTMLImageElement.
+  let dims: { width: number; height: number }
+  try {
+    dims = await readImageDimensions(file)
+  } catch (e: any) {
+    toast.error(e?.message ?? 'Не удалось прочитать изображение.')
+    return
+  }
+  if (dims.width < COVER_MIN_W || dims.height < COVER_MIN_H) {
+    toast.error(`Слишком маленькое изображение (${dims.width}×${dims.height}). Минимум ${COVER_MIN_W}×${COVER_MIN_H}.`)
+    return
+  }
+  if (dims.width > COVER_MAX_W || dims.height > COVER_MAX_H) {
+    toast.error(`Слишком большое изображение (${dims.width}×${dims.height}). Максимум ${COVER_MAX_W}×${COVER_MAX_H}.`)
+    return
+  }
+
+  // All validations passed — commit local preview and start upload.
   coverFile.value = file
-  if (coverPreview.value) URL.revokeObjectURL(coverPreview.value)
   coverPreview.value = URL.createObjectURL(file)
 
-  // Upload to MinIO via presigned URL
   uploadingCover.value = true
   try {
-    // Step 1: Get presigned PUT URL
     const slot = await api.storage.createSlot('COVER', file.type)
 
-    // Step 2: Upload file directly to MinIO
-    await fetch(slot.uploadUrl, {
+    const putResp = await fetch(slot.uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': file.type },
       body: file,
     })
+    if (!putResp.ok) {
+      throw new Error(`Загрузка в хранилище не удалась: HTTP ${putResp.status}`)
+    }
 
-    // Step 3: Confirm upload
-    const asset = await api.storage.confirm(slot.assetId)
-
-    // Step 4: Get download URL for the cover
+    await api.storage.confirm(slot.assetId)
     const dl = await api.storage.downloadUrl(slot.assetId)
     coverImageUrl.value = dl.url
 
     toast.success('Обложка загружена')
-  } catch (e) {
-    console.warn('Cover upload failed, using local preview:', e)
-    // Keep local preview — upload will retry on submit if needed
+  } catch (e: any) {
+    // Upload failed — we MUST NOT keep stale preview + empty URL, because
+    // the submit handler sends `coverImageUrl` only; a "silently
+    // attached" preview becomes a dropped cover after Save. Wipe the
+    // selection and tell the user why.
+    console.error('Cover upload failed:', e)
+    if (coverPreview.value) { URL.revokeObjectURL(coverPreview.value); coverPreview.value = null }
+    coverFile.value = null
+    coverImageUrl.value = ''
+    toast.error(e?.message || 'Не удалось загрузить обложку. Попробуйте ещё раз.')
   } finally {
     uploadingCover.value = false
   }
