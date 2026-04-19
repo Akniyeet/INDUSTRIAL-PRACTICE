@@ -302,18 +302,69 @@ docker compose up -d keycloak
 docker compose logs keycloak | grep -i "identity-provider\|error"
 ```
 
-### 6.6 Пайдаланушы Google-мен кіре алмайды, бірақ email/пароль жұмыс істейді
+### 6.6 «Authenticate to link your account with google» Webizon парольді сұрап тұр
 
-**Не болды:** First Broker Login flow қате конфигурацияланған (idp-auto-link немесе idp-create-user-if-unique).
+**Симптом:** User Google-мен кірмек, бірақ Keycloak default login screen-ге түсіп, email/пароль сұрайды («Authenticate to link your account with google»).
 
-**Диагноз:** Keycloak admin UI → Authentication → Flows → `webizon-first-broker-login`. Сатылар тізімі:
-1. `idp-review-profile` (ALTERNATIVE)
-2. `idp-create-user-if-unique` (ALTERNATIVE)
-3. `Handle Existing Account` (ALTERNATIVE sub-flow)
-   - `idp-confirm-link` (REQUIRED)
-   - `Account verification options` (REQUIRED)
+**Не болды:** Бұл — Keycloak first-broker-login flow-ның `idp-confirm-link` fallback-ы. Бұрын Webizon-да сол email-мен email/пароль арқылы тіркелген аккаунт болса, Keycloak оны байланыстырмас бұрын юзердің оған иелігін паролимен растауын талап етеді. Silent auto-link жұмыс істемей тұр.
 
-Барлығы REQUIRED/ALTERNATIVE болуы керек, бірде-бірі DISABLED болмауы керек.
+**Себебі (тарихи):** `webizon-first-broker-login` flow-ның "User creation or linking" subflow-ында `idp-auto-link` бар, бірақ оның алдында `idp-detect-existing-broker-user` REQUIRED жоқ болса, `idp-auto-link` контекстен existing user таппай fail болып, Handle Existing Account fallback-ке түседі.
+
+**Дұрыс flow** (`infra/keycloak/import/webizon-realm.json`-да жазылған, `2026-04-19`-да түзетілген):
+
+```
+webizon-first-broker-login (top, REQUIRED)
+└─ User creation or linking (REQUIRED subflow)
+   ├─ idp-detect-existing-broker-user  REQUIRED   priority=0   ← email бойынша user табады
+   ├─ idp-auto-link                    ALTERNATIVE priority=10  ← табылған user-ге silent link
+   ├─ idp-create-user-if-unique        ALTERNATIVE priority=20  ← табылмаса жаңа жасайды
+   └─ Handle Existing Account          ALTERNATIVE priority=30  ← конфирм fallback
+```
+
+**Үш сценарий, бәрі де silent (manual confirm жоқ):**
+
+| Сценарий | Flow жолы | Нәтиже |
+|---|---|---|
+| **A.** Жаңа адам, Webizon-да accountы жоқ | detect (no-op) → auto-link fail → create-user-if-unique ✅ | Google профилінен жаңа аккаунт |
+| **B.** Бұрын email/паролмен тіркелген, енді сол email-мен Google | detect табады → auto-link ✅ | Google identity silent байланысады |
+| **C.** Бұрын Google-мен кіріп, қайта кіріп жатыр | First broker login flow мүлдем іске қосылмайды (federated_identity бар) | Silent кіреді |
+
+**Тексеру (runtime):**
+```bash
+docker exec webizon-keycloak /opt/keycloak/bin/kcadm.sh config credentials \
+  --server http://localhost:8180 --realm master --user admin --password admin
+docker exec webizon-keycloak /opt/keycloak/bin/kcadm.sh \
+  get authentication/flows/webizon-first-broker-login/executions -r webizon \
+  | python3 -c "import sys,json; [print(f\"L{e['level']} {e['requirement']:12} {e.get('providerId') or e.get('displayName')}\") for e in json.load(sys.stdin) if e.get('level',0) <= 1]"
+```
+Күтілетін шығыс:
+```
+L0 DISABLED     idp-review-profile
+L0 REQUIRED     webizon-first-broker-login User creation or linking
+L1 REQUIRED     idp-detect-existing-broker-user
+L1 ALTERNATIVE  idp-auto-link
+L1 ALTERNATIVE  idp-create-user-if-unique
+L1 ALTERNATIVE  webizon-first-broker-login Handle Existing Account
+```
+
+**Қалпына келтіру (егер flow бүлінсе):**
+```bash
+docker compose down
+docker volume rm webizon_keycloak_data
+docker compose up -d keycloak  # realm.json-ды fresh импорттайды
+```
+
+Немесе runtime-да түзету (volume сақтаймын десеңіз) — `kcadm` арқылы:
+```bash
+# 1. detect-existing-broker-user execution жасау
+docker exec webizon-keycloak /opt/keycloak/bin/kcadm.sh create \
+  "authentication/flows/webizon-first-broker-login%20User%20creation%20or%20linking/executions/execution" \
+  -r webizon -s provider=idp-detect-existing-broker-user
+# 2. requirement=REQUIRED + ең жоғарғы priority-ге көтеру (kcadm UI арқылы оңайырақ:
+#    Authentication → Flows → webizon-first-broker-login → ⋮ → Add execution)
+```
+
+**Бұрын байланысқан пайдаланушылар әсер етпейді** — олардың `federated_identity` жазбасы бар, олар сценарий C жолымен жүреді.
 
 ### 6.7 «Your account is already linked to Google» бірақ юзер бұрын Google-мен кірмеген
 
@@ -365,5 +416,5 @@ docker compose logs keycloak | grep -i "identity-provider\|error"
 
 ---
 
-**Last updated:** 2026-04-18
+**Last updated:** 2026-04-19 (Google silent auto-link fix — section 6.6)
 **Maintainer:** aidos.zhumanazar@gmail.com

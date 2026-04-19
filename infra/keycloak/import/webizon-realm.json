@@ -142,24 +142,31 @@
       "builtIn": false,
       "authenticationExecutions": [
         {
-          "authenticator": "idp-auto-link",
+          "authenticator": "idp-detect-existing-broker-user",
           "authenticatorFlow": false,
-          "requirement": "ALTERNATIVE",
+          "requirement": "REQUIRED",
           "priority": 0,
           "autheticatorFlow": false
         },
         {
-          "authenticator": "idp-create-user-if-unique",
+          "authenticator": "idp-auto-link",
           "authenticatorFlow": false,
           "requirement": "ALTERNATIVE",
           "priority": 10,
           "autheticatorFlow": false
         },
         {
+          "authenticator": "idp-create-user-if-unique",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "autheticatorFlow": false
+        },
+        {
           "authenticatorFlow": true,
           "flowAlias": "webizon-first-broker-login Handle Existing Account",
           "requirement": "ALTERNATIVE",
-          "priority": 20,
+          "priority": 30,
           "autheticatorFlow": true
         }
       ]

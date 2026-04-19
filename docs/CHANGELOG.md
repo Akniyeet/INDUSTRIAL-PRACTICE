@@ -17,6 +17,34 @@
 
 ---
 
+## 2026-04-19 — Auth: Google silent auto-link fix (`idp-detect-existing-broker-user`)
+
+### Root-cause: silent linking failed for users with prior email/password account
+
+**Симптом:** «Продолжить с Google» басқан соң, Google-да сәтті authenticate болғаннан кейін Keycloak default login form-ға түсіп («Sign in to your account» / «Authenticate to link your account with google»), Webizon паролін сұрап тұрды. Үш сценарийдің бірі (existing email/password user) жұмыс істемеді.
+
+**Себебі:** Yesterday's commit (`88f4c3e`) `webizon-first-broker-login` flow-ға `idp-auto-link` қосқан, бірақ оның пререкизиті — `idp-detect-existing-broker-user` REQUIRED — жоқ еді. Сол себепті `idp-auto-link` контекстен existing user таппай fail болып, `Handle Existing Account` fallback-ке түсіп, юзерден Webizon паролін сұрады. End-to-end "existing email" сценарий тестелмеген.
+
+**Шешімі:**
+- `infra/keycloak/import/webizon-realm.json` → "User creation or linking" subflow-қа `idp-detect-existing-broker-user` REQUIRED priority=0 қосылды (auto-link-тен бұрын)
+- Runtime flow-да да солай орнатылды (kcadm арқылы), тестелді: `webizon365@gmail.com` Google-мен байланысты, `federated_identity` жазбасы пайда болды
+
+**Енді 3 сценарий де silent (manual confirm screen жоқ):**
+
+| # | Сценарий | Flow | Нәтиже |
+|---|---|---|---|
+| A | Жаңа адам, accountы жоқ | detect (no-op) → create-user-if-unique | Google профилінен жаңа аккаунт |
+| B | Бар email/password user, енді Google-мен | detect табады → auto-link silent | Google identity байланысады |
+| C | Бұрын Google-мен кірген, қайта | First-broker-login іске қосылмайды | Silent кіреді |
+
+**Файлдар:**
+- `infra/keycloak/import/webizon-realm.json` — flow execution қосу
+- `docs/runbooks/google-oauth-setup.md` §6.6 — толық runbook жаңартылды (диагностика kcadm command, expected output, recovery steps)
+
+**Тексеру** — runbook §6.6 «Тексеру (runtime)» бөлімінен kcadm командасын орындаңыз. Күтілетін шығыс L1-де `idp-detect-existing-broker-user REQUIRED` бірінші орналасқанын көрсетеді.
+
+---
+
 ## 2026-04-19 — MinIO: SDK region pin (presign split-horizon fix)
 
 ### Root-cause fix: presigned URLs fail until backend can reach the public endpoint
